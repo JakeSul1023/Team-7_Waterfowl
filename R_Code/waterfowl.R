@@ -14,21 +14,27 @@ library(readr)
 
 # Step 1: Load Dataset
 # Assuming the dataset is already in your environment
-waterfowl_data <- read_csv("Mallard_Connectivity_Recent_Data.csv")
+# Load the original dataset (if necessary)
+waterfowl_data <- read.csv("C:/Users/atomi/Documents/GitHub/Team-7_Waterfowl/R_Code/Mallard Connectivity_Recent_Data.csv")
+
+# Reduce the dataset to the first 100 rows for testing
+waterfowl_data <- head(waterfowl_data, 100)
+
+
 
 # Step 2: Inspect Dataset Structure
 str(waterfowl_data)
 head(waterfowl_data)
 
 # Ensure required columns are present
-if (!all(c("location-long", "location-lat", "event-id") %in% colnames(waterfowl_data))) {
+if (!all(c("location.long", "location.lat", "event.id") %in% colnames(waterfowl_data))) {
   stop("Dataset must contain 'location-long', 'location-lat', and 'event-id' columns!")
 }
 
 # Step 3: Create Spatial Data
 sp_data <- st_as_sf(
   waterfowl_data,
-  coords = c("location-long", "location-lat"),
+  coords = c("location.long", "location.lat"),
   crs = 4326  # WGS84 CRS
 )
 
@@ -37,18 +43,18 @@ r <- rast(ext(sp_data), resolution = 0.1)  # Adjust resolution as needed
 observed_raster <- rasterize(
   sp_data,
   r,
-  field = "event-id",
+  field = "event.id",
   fun = mean
 )
 
 # Step 5: Prepare Data for Prediction
 # Normalize observed data
-waterfowl_data$event_id_normalized <- scale(waterfowl_data$`event-id`, center = TRUE, scale = TRUE)
+waterfowl_data$event_id_normalized <- scale(waterfowl_data$`event.id`, center = TRUE, scale = TRUE)
 
 # Step 6: Train Predictive Model
 set.seed(123)
 model <- train(
-  event_id_normalized ~ `location-long` + `location-lat`,
+  event_id_normalized ~ `location.long` + `location.lat`,
   data = waterfowl_data,
   method = "rf"
 )
