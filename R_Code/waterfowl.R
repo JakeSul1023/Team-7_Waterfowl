@@ -9,18 +9,10 @@ library(caret)
 library(fields)
 library(rnaturalearth)
 library(ggplot2)
-library(readr)
-
 
 # Step 1: Load Dataset
 # Assuming the dataset is already in your environment
-# Load the original dataset (if necessary)
-waterfowl_data <- read.csv("C:/Users/atomi/Documents/GitHub/Team-7_Waterfowl/R_Code/Mallard Connectivity_Recent_Data.csv")
-
-# Reduce the dataset to the first 100 rows for testing
-waterfowl_data <- head(waterfowl_data, 100)
-
-
+waterfowl_data <- Mallard_Connectivity_Recent_Data
 
 # Step 2: Inspect Dataset Structure
 str(waterfowl_data)
