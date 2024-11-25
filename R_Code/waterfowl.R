@@ -12,7 +12,7 @@ library(ggplot2)
 
 # Step 1: Load Dataset
 # Assuming the dataset is already in your environment
-waterfowl_data <- Mallard_Connectivity_Recent_Data
+waterfowl_data <- read.csv("Mallard Connectivity_Recent_Data.csv")
 
 # Step 2: Inspect Dataset Structure
 str(waterfowl_data)
