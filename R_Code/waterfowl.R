@@ -14,6 +14,8 @@ library(ggplot2)
 # Assuming the dataset is already in your environment
 waterfowl_data <- read.csv("Mallard Connectivity_Recent_Data.csv")
 
+waterfowl_data <- head(waterfowl_data, 100)
+
 # Step 2: Inspect Dataset Structure
 str(waterfowl_data)
 head(waterfowl_data)
