@@ -88,3 +88,4 @@ ggplot() +
 writeRaster(observed_raster, "observed_raster.tif", format = "GTiff", overwrite = TRUE)
 writeRaster(predicted_raster, "predicted_raster.tif", format = "GTiff", overwrite = TRUE)
 
+#hey
