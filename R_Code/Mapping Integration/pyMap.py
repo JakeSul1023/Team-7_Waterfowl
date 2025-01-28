@@ -16,3 +16,5 @@ df = pd.read_csv('fresh.csv')
 #TO DO: Incorporate basic Kepler application from Wix
 
 print(df)
+
+#Running HTML file with sample data
