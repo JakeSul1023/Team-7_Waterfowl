@@ -1,0 +1,130 @@
+---
+title: "Waterfowl Migration Prediction and Visualization"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+
+
+
+```{r}
+# Install and load required libraries
+packages <- c("tidyverse", "sf", "raster", "randomForest", "leaflet", "leaflet.extras", "lubridate", "htmlwidgets")
+installed <- packages %in% rownames(installed.packages())
+if (any(!installed)) {
+  install.packages(packages[!installed])
+}
+
+# Load the libraries
+library(tidyverse)
+library(sf)          # For spatial data handling
+library(raster)      # For raster data manipulation
+library(randomForest) # For machine learning
+library(leaflet)     # For interactive maps
+library(leaflet.extras) # Additional leaflet controls
+library(lubridate)   # For date handling
+library(htmlwidgets)# For exporting the map as HTML
+library(sp)
+```
+
+```{r}
+# Preprocess: Ensure proper coordinate reference system (CRS)
+points <- st_transform(points, crs = 4326)  # Transform to WGS 84 (lat/lon)
+lines <- st_transform(lines, crs = 4326)
+
+# Simulate weather and timestamp data for prediction 
+set.seed(123)
+points$temperature <- runif(nrow(points), min = -10, max = 35)  # Example temperature data
+points$timestamp <- Sys.Date() + sample(1:30, nrow(points), replace = TRUE)  # Random future dates
+
+# Example: Create a simplified prediction algorithm
+# Predict migration paths based on proximity and weather
+points$predicted_migration_intensity <- runif(nrow(points), min = 0, max = 100)  # Random intensity
+
+# Map migration intensity onto spatial data
+migration_raster <- raster(extent(st_bbox(points)), nrow = 100, ncol = 100)
+values(migration_raster) <- runif(ncell(migration_raster), min = 0, max = 100)
+
+# Visualize with ggplot2 (Static)
+ggplot() +
+  geom_sf(data = points, aes(color = predicted_migration_intensity, size = predicted_migration_intensity)) +
+  scale_color_viridis_c() +
+  ggtitle("Predicted Waterfowl Migration Paths") +
+  theme_minimal()
+
+# Visualize with Leaflet (Interactive)
+leaflet(points) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~st_coordinates(points)[, 1], ~st_coordinates(points)[, 2],
+    color = ~colorNumeric("YlOrRd", points$predicted_migration_intensity)(predicted_migration_intensity),
+    radius = ~predicted_migration_intensity / 10,
+    label = ~paste0("Intensity: ", round(predicted_migration_intensity, 2), "<br>Date: ", timestamp)
+  ) %>%
+  addLegend(
+    "bottomright",
+    pal = colorNumeric("YlOrRd", domain = points$predicted_migration_intensity),
+    values = points$predicted_migration_intensity,
+    title = "Migration Intensity"
+  )
+```
+
+```{r}
+setwd("C:/Users/brean/Desktop/WaterfowlPredictions")
+# Load shapefiles
+points <- st_read("points.shp")  
+lines <- st_read("lines.shp")
+
+# Check the structure of the data
+print(points)
+print(lines)
+```
+
+```{r}
+# Simulate weather data
+set.seed(123)
+points$temperature <- runif(nrow(points), min = -10, max = 35)  # Example temperature range
+points$timestamp <- as.POSIXct("2025-01-01", format = "%Y-%m-%d")  # Set a static timestamp
+
+# Convert to a data frame for modeling
+points_df <- as.data.frame(points)
+points_df <- points_df %>%
+  mutate(lon = st_coordinates(points)[, 1],
+         lat = st_coordinates(points)[, 2])
+
+# Preview the prepared data
+head(points_df)
+
+```
+```{r}
+# Simulate migration intensity
+points_df$intensity <- runif(nrow(points_df), min = 0, max = 100)
+
+# Split data into training and testing sets
+set.seed(123)
+train_index <- sample(nrow(points_df), size = 0.8 * nrow(points_df))
+train_data <- points_df[train_index, ]
+test_data <- points_df[-train_index, ]
+
+```
+
+```{r}
+# Train Random Forest model
+rf_model <- randomForest(intensity ~ temperature + lon + lat, data = train_data, ntree = 20)
+
+# Predict on test set
+test_data$predictions <- predict(rf_model, test_data)
+
+# Model performance
+print(rf_model)
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
