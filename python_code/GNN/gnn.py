@@ -12,8 +12,45 @@
 #Assigned Team Members: Revel Etheridge
 #Build the stopover graph from historical data. 
 
-if __name__ == "__main__":
+import csv
 
+def importLoc():
+    with open('ShortTermSetData(Aug-Sept).csv', mode='r')as file:
+        csvFile = csv.reader(file)
+
+if __name__ == "__main__":
+    importLoc()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
     try:
         #importing networkx module and veryfing accessibility
         import networkx as nx
@@ -36,7 +73,7 @@ if __name__ == "__main__":
 
     except ImportError as e:
         print("Error -> ", e)
-
+'''
 
 
 
