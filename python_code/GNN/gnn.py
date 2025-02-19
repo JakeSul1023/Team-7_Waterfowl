@@ -13,12 +13,13 @@
 #Build the stopover graph from historical data. 
 
 import pandas as pd
+import matplotlib.pyplot as plt
 
 #Location importing via csv
 def importLoc():
     with open('ShortTermSetData(Aug-Sept).csv', mode='r')as file:
         df = pd.read_csv(file)
-        print(df.head())
+    #    print(df.head())
 
     #Isolating location data
 
@@ -40,44 +41,22 @@ def importLoc():
 
     #Combining coordinates
     coordTuple = list(zip(long, lat))
-    for line in coordTuple[:5]:
-        print(line)
+
+    #Testing coordinate combining
+    #for line in coordTuple[:5]:
+    #    print(line)
+
+    return coordTuple
+
+
 
 if __name__ == "__main__":
 
-    #Read in CSV
-    importLoc()
+    #Read in CSV and extract location data
+    locList = importLoc()
+    miniList = locList[:10]
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
+    #Turn coordinates into GNN nodes
     try:
         #importing networkx module and veryfing accessibility
         import networkx as nx
@@ -87,20 +66,18 @@ if __name__ == "__main__":
         G = nx.Graph()
 
         #Adding first set of nodes
-        G.add_nodes_from([2,3])
+        G.add_nodes_from(miniList)
 
         #Creating edges to relate nodes
-        edges = [(2,1),(2,2),(3,2),(4,3),(6,4),(7,5),(14,5)]
-        G.add_edges_from(edges)
+        #edges = [(2,1),(2,2),(3,2),(4,3),(6,4),(7,5),(14,5)]
+        #G.add_edges_from(edges)
 
         #Printing graph
         nx.draw(G, with_labels=True, font_weight='bold')
-        import matplotlib.pyplot as plt
         plt.show()
 
     except ImportError as e:
         print("Error -> ", e)
-'''
 
 
 
