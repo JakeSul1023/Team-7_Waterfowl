@@ -12,13 +12,27 @@
 #Assigned Team Members: Revel Etheridge
 #Build the stopover graph from historical data. 
 
-import csv
+import pandas as pd
 
+#Location importing via csv
 def importLoc():
     with open('ShortTermSetData(Aug-Sept).csv', mode='r')as file:
-        csvFile = csv.reader(file)
+        df = pd.read_csv(file)
+        print(df.head())
+
+    #Isolating location data
+
+    #Saving longitudes
+    long = df['location-long'].tolist()
+
+    #Testing column ioslation
+    print("Longitudes: ")
+    for line in long[:5]:
+        print(line)
 
 if __name__ == "__main__":
+
+    #Read in CSV
     importLoc()
 
 
