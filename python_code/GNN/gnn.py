@@ -30,6 +30,14 @@ def importLoc():
     for line in long[:5]:
         print(line)
 
+    #Saving latitudes
+    lat = df['location-lat'].tolist()
+
+    #Testing latitude extraction
+    print("Latitudes: ")
+    for line in lat[:5]:
+        print(line)
+
 if __name__ == "__main__":
 
     #Read in CSV
