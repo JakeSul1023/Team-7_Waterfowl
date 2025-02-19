@@ -26,16 +26,21 @@ def importLoc():
     long = df['location-long'].tolist()
 
     #Testing column ioslation
-    print("Longitudes: ")
-    for line in long[:5]:
-        print(line)
+    #print("Longitudes: ")
+    #for line in long[:5]:
+    #    print(line)
 
     #Saving latitudes
     lat = df['location-lat'].tolist()
 
     #Testing latitude extraction
-    print("Latitudes: ")
-    for line in lat[:5]:
+    #print("Latitudes: ")
+    #for line in lat[:5]:
+    #    print(line)
+
+    #Combining coordinates
+    coordTuple = list(zip(long, lat))
+    for line in coordTuple[:5]:
         print(line)
 
 if __name__ == "__main__":
