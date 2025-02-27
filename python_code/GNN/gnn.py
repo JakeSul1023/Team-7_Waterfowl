@@ -90,7 +90,8 @@ def predict_next_location(G, current_location):
 
 def generate_duck_colors(ducks):
     colors = plt.cm.rainbow(np.linspace(0, 1, len(ducks)))
-    return {duck_id: colors[i] for i, duck_id in enumerate(ducks)}
+    
+    return {duck_id: colors[i] for i, duck_id in enumerate(sorted(ducks))}
 
 def graph_ducks(G, edges, duck_edge_map, duck_colors):
     
