@@ -96,14 +96,22 @@ def graph_ducks(G, edges, duck_edge_map, duck_colors):
     
     plt.figure(figsize=(10, 7))
 
-    pos = nx.kamada_kawai_layout(G) 
+    pos = nx.spring_layout(G, seed = 42, k = 0.5) 
 
+    if(len(G.nodes) > 10000):
+        pos = nx.random_layout(G)
+    
     nx.draw_networkx_nodes(G, pos, node_size=100, node_color='skyblue')
 
     for edge in edges:
-        duck_id = duck_edge_map.get(edge, None)
-        color = duck_colors.get(duck_id, "black")  
-        nx.draw_networkx_edges(G, pos, edgelist=[edge], edge_color=[color], width=2)
+        duck_ids = duck_edge_map.get(edge, set())  
+        if duck_ids:
+            colors = [duck_colors[duck_id] for duck_id in duck_ids if duck_id in duck_colors]
+            avg_color = np.mean(colors, axis=0) if colors else "black"  
+        else:
+            avg_color = "black"
+
+        nx.draw_networkx_edges(G, pos, edgelist=[edge], edge_color=[avg_color], width=2)
 
     plt.title("Duck Migration Network")
     plt.show()
@@ -121,13 +129,13 @@ def create_edges(ducks):
             if node1 != node2: 
                 edge = (node1, node2)
 
-                # Count edge occurrences
-                if edge in edge_count:
-                    edge_count[edge] += 1
-                else:
-                    edge_count[edge] = 1
+                edge_count[edge] = edge_count.get(edge, 0) + 1
 
-                duck_edge_map[edge] = duck.duckID
+                # Store multiple duck IDs for shared edges
+                if edge in duck_edge_map:
+                    duck_edge_map[edge].add(duck.duckID)
+                else:
+                    duck_edge_map[edge] = {duck.duckID}
 
     return list(edge_count.keys()), duck_edge_map, edge_count
 
