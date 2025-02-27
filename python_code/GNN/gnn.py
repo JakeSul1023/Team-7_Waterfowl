@@ -54,8 +54,7 @@ def countDucks(df):
 def selectDucks(totalDucks, duckList):
 
     print("Total Number of unique duck IDs imported: ", totalDucks)
-    userInput = input("How many ducks would you like to model with? ")
-    portion = int(userInput)
+    portion = int(input("How many ducks would you like to model with? "))
     sampleList = random.sample(duckList, portion)
 
     return sampleList
@@ -66,10 +65,107 @@ def create_nodes(ducks):
         nodes.update(duck.coord) 
     return list(nodes)  
 
-def create_edges(ducks):
+def add_edge_weights(G, edge_count):
+    for edge, count in edge_count.items():
+        G.add_edge(edge[0], edge[1], weight=count)
 
+def predict_next_location(G, current_location):
+
+    neighbors = list(G.neighbors(current_location))
+    
+    if not neighbors:
+        print("No neighboring locations to predict next stopover.")
+        return None
+
+    max_weight = -1
+    next_location = None
+
+    for neighbor in neighbors:
+        weight = G[current_location][neighbor].get('weight', 1) 
+        if weight > max_weight:
+            max_weight = weight
+            next_location = neighbor
+
+    return next_location
+
+def generate_duck_colors(ducks):
+    colors = plt.cm.rainbow(np.linspace(0, 1, len(ducks)))
+    return {duck_id: colors[i] for i, duck_id in enumerate(ducks)}
+
+def graph_ducks(G, edges, duck_edge_map, duck_colors):
+    
+    plt.figure(figsize=(10, 7))
+
+    pos = nx.kamada_kawai_layout(G) 
+
+    nx.draw_networkx_nodes(G, pos, node_size=100, node_color='skyblue')
+
+    for edge in edges:
+        duck_id = duck_edge_map.get(edge, None)
+        color = duck_colors.get(duck_id, "black")  
+        nx.draw_networkx_edges(G, pos, edgelist=[edge], edge_color=[color], width=2)
+
+    plt.title("Duck Migration Network")
+    plt.show()
+
+def create_edges(ducks):
     edges = []
+    edge_count = {}
+    duck_edge_map = {}
+
     for duck in ducks.values():
         for i in range(len(duck.coord) - 1):
             node1 = duck.coord[i]
-            node2 
+            node2 = duck.coord[i + 1]
+
+            if node1 != node2: 
+                edge = (node1, node2)
+
+                # Count edge occurrences
+                if edge in edge_count:
+                    edge_count[edge] += 1
+                else:
+                    edge_count[edge] = 1
+
+                duck_edge_map[edge] = duck.duckID
+
+    return list(edge_count.keys()), duck_edge_map, edge_count
+
+if __name__ == "__main__":
+
+    with open('ShortTermSetData(Aug-Sept).csv', mode='r')as file:
+        df = pd.read_csv("ShortTermSetData(Aug-Sept).csv")
+
+    #Determining total number of ducks in sample
+    total, uniqueIDs = countDucks(df)
+
+    #Creating scalable, random sample of ducks
+    sampleDucks = selectDucks(total, uniqueIDs)
+
+    ducks = {}
+
+    #Creating profiles for each duck in sample
+    for duck_id in sampleDucks:
+        duck = Duck(duck_id)
+        duck.importLoc(df)
+        ducks[duck_id] = duck
+
+    #Graph initialization (empty)
+    G = nx.Graph()
+
+    nodes = create_nodes(ducks)
+    G.add_nodes_from(nodes)
+
+    edges,duck_edge_map, edge_count = create_edges(ducks)
+    G.add_edges_from(edges)
+    add_edge_weights(G, edge_count)
+
+    duck_colors = generate_duck_colors(ducks)
+
+    graph_ducks(G, edges, duck_edge_map, duck_colors)
+
+    test_duck = ducks[sampleDucks[0]]
+    current_location = test_duck.coord[-1]
+    print("Current Location: ", test_duck.duckID, " , ", current_location)
+    next_location = predict_next_location(G, current_location)
+    print("Predicted next: ", next_location)
