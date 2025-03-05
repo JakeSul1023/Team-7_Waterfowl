@@ -145,10 +145,34 @@ def create_edges(ducks):
     return list(edge_count.keys()), duck_edge_map, edge_count
 
 def get_weather(lat, lon):
+
     url = f"https://api.weather.gov/points/{lat},{lon}"
 
-    
+    headers = {
+        "User-Agent": "WaterfowlMigration",
+        "Accept": "application/json"
+    }
 
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+
+        print("URL success")
+        data = response.json()
+        forecast_url = data['properties']['forecast']
+
+        forecast_response = requests.get(forecast_url, headers=headers)
+
+        if forecast_response.status_code == 200:
+            print("Forecast success")
+            return forecast_response.json()
+        else:
+            print("Forecast fail")
+            return None
+
+    else:
+        print("URL fail")
+        return None
 
 if __name__ == "__main__":
 
@@ -185,6 +209,15 @@ if __name__ == "__main__":
 
     test_duck = ducks[sampleDucks[0]]
     current_location = test_duck.coord[-1]
-    print("Current Location: ", test_duck.duckID, " , ", current_location)
+    #print("Current Location: ", test_duck.duckID, " , ", current_location)
     next_location = predict_next_location(G, current_location)
-    print("Predicted next: ", next_location)
+    #print("Predicted next: ", next_location)
+
+    print(" ")
+    print("*"*10)
+    print("Weather Testing")
+    #Test points
+    lat = 40.723487854003906
+    lon = -91.1420669555664
+    weather = get_weather(lat, lon)
+    print(f"Weather data: {weather}")   
