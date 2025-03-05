@@ -17,6 +17,10 @@ import matplotlib.pyplot as plt
 import random
 import networkx as nx
 import numpy as np
+import requests
+
+#Stored API Token
+NOAA_TOKEN = "pKsYMZQINiCtWEbiUdvJHImQDqYlZmhu"
 
 #Class Declaration
 class Duck():
@@ -101,7 +105,7 @@ def graph_ducks(G, edges, duck_edge_map, duck_colors):
 
     if(len(G.nodes) > 10000):
         pos = nx.random_layout(G)
-    
+
     nx.draw_networkx_nodes(G, pos, node_size=100, node_color='skyblue')
 
     for edge in edges:
@@ -140,6 +144,12 @@ def create_edges(ducks):
 
     return list(edge_count.keys()), duck_edge_map, edge_count
 
+def get_weather(lat, lon):
+    url = f"https://api.weather.gov/points/{lat},{lon}"
+
+    
+
+
 if __name__ == "__main__":
 
     with open('ShortTermSetData(Aug-Sept).csv', mode='r')as file:
@@ -171,7 +181,7 @@ if __name__ == "__main__":
 
     duck_colors = generate_duck_colors(ducks)
 
-    graph_ducks(G, edges, duck_edge_map, duck_colors)
+    #graph_ducks(G, edges, duck_edge_map, duck_colors)
 
     test_duck = ducks[sampleDucks[0]]
     current_location = test_duck.coord[-1]
