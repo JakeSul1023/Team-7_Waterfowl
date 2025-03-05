@@ -174,6 +174,23 @@ def get_weather(lat, lon):
         print("URL fail")
         return None
 
+def process_weather(weather_raw):
+
+    periods = weather_raw['properties']['periods']
+
+    relevant_data = {
+        "timestamp": [period['startTime'] for period in periods],
+        "temperature": [period['temperature'] for period in periods],
+        "temperature_unit": [period['temperatureUnit'] for period in periods],
+        "wind_speed": [period['windSpeed'] for period in periods],
+        "wind_direction": [period['windDirection'] for period in periods],
+        "precipitation": [period.get('probabilityOfPrecipitation', {}).get('value', None) for period in periods],
+        "short_forecast": [period['shortForecast'] for period in periods]
+    }
+
+    weather_filtered = pd.DataFrame(relevant_data)
+    return weather_filtered
+
 if __name__ == "__main__":
 
     with open('ShortTermSetData(Aug-Sept).csv', mode='r')as file:
@@ -219,5 +236,6 @@ if __name__ == "__main__":
     #Test points
     lat = 40.723487854003906
     lon = -91.1420669555664
-    weather = get_weather(lat, lon)
-    print(f"Weather data: {weather}")   
+    weather_r = get_weather(lat, lon)
+    weather_f = process_weather(weather_r)
+    print(f"Weather data: {weather_f}")   
