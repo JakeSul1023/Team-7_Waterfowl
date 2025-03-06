@@ -1,40 +1,59 @@
-library(httr)     # For API requests
-library(jsonlite) # For JSON parsing
-library(dplyr)    # For data frame 
+# Load required libraries
+library(httr)
+library(jsonlite)
+library(dplyr)
 
-# Function to retrieve weather forecast
+# Function to retrieve weather forecast from NWS API
 get_weather_forecast <- function(latitude, longitude) {
-  # Step 1: Get metadata for the location
+  # Construct the URL for the points endpoint
   points_url <- sprintf("https://api.weather.gov/points/%.4f,%.4f", latitude, longitude)
+  
+  # Send GET request to the points endpoint
   points_response <- GET(points_url, user_agent("YourAppName (your_email@example.com)"))
   
+  # Check for request errors
   if (http_error(points_response)) {
     stop("Error retrieving points metadata: ", http_status(points_response)$message)
   }
   
-  # Manually parse the response as JSON
+  # Parse the response as JSON
   points_data <- fromJSON(content(points_response, as = "text", encoding = "UTF-8"))
   
-  # Extract forecast URL
+  # Extract the forecast URL
   forecast_url <- points_data$properties$forecast
-  hourly_forecast_url <- points_data$properties$forecastHourly
   
-  if (is.null(forecast_url) || is.null(hourly_forecast_url)) {
-    stop("Could not find forecast URLs in the metadata.")
+  # Check if the forecast URL is available
+  if (is.null(forecast_url)) {
+    stop("Could not find forecast URL in the metadata.")
   }
   
-  # Step 2: Get the forecast data
+  # Send GET request to the forecast endpoint
   forecast_response <- GET(forecast_url, user_agent("YourAppName (your_email@example.com)"))
+  
+  # Check for request errors
   if (http_error(forecast_response)) {
     stop("Error retrieving forecast data: ", http_status(forecast_response)$message)
   }
   
-  # Manually parse the response as JSON
+  # Parse the forecast data as JSON
   forecast_data <- fromJSON(content(forecast_response, as = "text", encoding = "UTF-8"))
   
-  # Step 3: Extract and return the forecast
+  # Extract the forecast periods
   forecast <- forecast_data$properties$periods
-  return(forecast)
+  
+  # Extract relevant fields, including humidity
+  result <- data.frame(
+    TimePeriod = forecast$name,
+    Temperature = forecast$temperature,
+    TemperatureUnit = forecast$temperatureUnit,
+    WindSpeed = forecast$windSpeed,
+    WindDirection = forecast$windDirection,
+    ShortForecast = forecast$shortForecast,
+    DetailedForecast = forecast$detailedForecast,
+    Humidity = sapply(forecast$relativeHumidity, function(x) ifelse(is.null(x$value), NA, x$value))
+  )
+  
+  return(result)
 }
 
 # Function to return predefined locations along the Mississippi Flyway
@@ -48,55 +67,66 @@ get_flyway_locations <- function() {
 
 # Function to print a simplified version of the forecast
 print_simplified_forecast <- function(forecast, num_periods = 5) {
-  # Ensure the forecast has at least num_periods rows
   if (nrow(forecast) < num_periods) {
     stop("The forecast data has fewer periods than requested.")
   }
   
-  # Select the first `num_periods` rows
   limited_forecast <- head(forecast, num_periods)
-  
-  # Exclude the startTime and endTime columns
   simplified_forecast <- limited_forecast[, !(colnames(limited_forecast) %in% c("startTime", "endTime"))]
   
-  # Print each period
   for (i in 1:nrow(simplified_forecast)) {
-    cat("Name:", simplified_forecast$name[i], "\n")
-    cat("Temperature:", simplified_forecast$temperature[i], simplified_forecast$temperatureUnit[i], "\n")
-    cat("Wind:", simplified_forecast$windSpeed[i], simplified_forecast$windDirection[i], "\n")
-    cat("Short Forecast:", simplified_forecast$shortForecast[i], "\n")
+    cat("Name:", simplified_forecast$TimePeriod[i], "\n")
+    cat("Temperature:", simplified_forecast$Temperature[i], simplified_forecast$TemperatureUnit[i], "\n")
+    cat("Wind:", simplified_forecast$WindSpeed[i], simplified_forecast$WindDirection[i], "\n")
+    cat("Humidity:", simplified_forecast$Humidity[i], "%\n")
+    cat("Short Forecast:", simplified_forecast$ShortForecast[i], "\n")
     cat("===================================\n")
   }
 }
 
-# Function to return the first 5 detailedForecast values
+# Function to return the first 5 detailed forecast values
 get_first_five_detailed_forecasts <- function(forecast) {
-  # Extract the first 5 detailedForecast values
-  detailed_forecasts <- forecast$detailedForecast[1:5]
-  
-  # Return the result
+  detailed_forecasts <- forecast$DetailedForecast[1:5]
   return(detailed_forecasts)
 }
 
 # Function to check if snow is forecasted
 is_snow_forecasted <- function(forecast) {
-  # Check the shortForecast column for "Snow"
-  snow_in_short <- grepl("Snow", forecast$shortForecast, ignore.case = TRUE)
-  
-  # Check the detailedForecast column for "Snow"
-  snow_in_detailed <- grepl("Snow", forecast$detailedForecast, ignore.case = TRUE)
-  
-  # Combine results to see if snow is mentioned in either column
+  snow_in_short <- grepl("Snow", forecast$ShortForecast, ignore.case = TRUE)
+  snow_in_detailed <- grepl("Snow", forecast$DetailedForecast, ignore.case = TRUE)
   any_snow <- snow_in_short | snow_in_detailed
-  
-  # Return rows where snow is forecasted
   return(forecast[any_snow, ])
 }
 
-# Function to fetch weather forecasts for all flyway locations and save to CSV
+is_severe_weather_forecasted <- function(forecast) {
+  # Define severe weather keywords
+  severe_keywords <- c("Thunderstorm", "Tornado", "Hurricane", "High Winds", 
+                       "Severe", "Hail", "Flash Flood", "Blizzard", "Storm", "Damaging Winds")
+  
+  # Check if any of these words appear in shortForecast or detailedForecast
+  severe_in_short <- grepl(paste(severe_keywords, collapse = "|"), forecast$ShortForecast, ignore.case = TRUE)
+  severe_in_detailed <- grepl(paste(severe_keywords, collapse = "|"), forecast$DetailedForecast, ignore.case = TRUE)
+  
+  # Combine results to see if severe weather is mentioned
+  any_severe <- severe_in_short | severe_in_detailed
+  
+  # Get the severe weather periods
+  severe_forecast <- forecast[any_severe, ]
+  
+  # Print results
+  if (nrow(severe_forecast) > 0) {
+    cat("**Severe Weather Alert!** The following periods have severe weather:\n")
+    print(severe_forecast)
+  } else {
+    cat("*No severe weather detected in the forecast.**\n")
+  }
+  
+  return(severe_forecast)
+}
+# Function to fetch and save weather forecasts for all flyway locations
 fetch_and_save_flyway_forecasts <- function(output_file = "flyway_forecasts.csv") {
   locations <- get_flyway_locations()
-  flyway_forecasts <- NULL  # Start as NULL to avoid rbind() conflicts
+  flyway_forecasts <- NULL
   
   for (i in 1:nrow(locations)) {
     cat(sprintf("Fetching forecast for %s (%f, %f)\n", 
@@ -110,12 +140,8 @@ fetch_and_save_flyway_forecasts <- function(output_file = "flyway_forecasts.csv"
     )
     
     if (!is.null(forecast)) {
-      forecast$Location <- locations$Name[i]  # Add location column
-      
-      # Convert to tibble (data frame without row names) and ensure clean binding
+      forecast$Location <- locations$Name[i]  
       forecast <- as_tibble(forecast)
-      
-      # Safely bind rows while avoiding row name duplication
       if (is.null(flyway_forecasts)) {
         flyway_forecasts <- forecast
       } else {
@@ -124,7 +150,6 @@ fetch_and_save_flyway_forecasts <- function(output_file = "flyway_forecasts.csv"
     }
   }
   
-  # Save to CSV only if data exists
   if (!is.null(flyway_forecasts)) {
     write.csv(flyway_forecasts, output_file, row.names = FALSE)
     cat(sprintf("Forecasts saved to %s\n", output_file))
@@ -133,26 +158,10 @@ fetch_and_save_flyway_forecasts <- function(output_file = "flyway_forecasts.csv"
   }
 }
 
-
-
-# Example usage for a single location
-latitude <- 36.1628
-longitude <- -85.5016
-forecast <- get_weather_forecast(latitude, longitude)
-
-# Print the first 5 periods of the forecast
-print_simplified_forecast(forecast)
-
-# Print the detailed forecast of the weather
-first_five_detailed_forecasts <- get_first_five_detailed_forecasts(forecast)
-print(first_five_detailed_forecasts)
-
-# Prints the forecasted snow
-snow_forecast <- is_snow_forecasted(forecast)
-print(snow_forecast)
-
-# Fetch and save forecasts for all flyway locations
+# Example usage
 fetch_and_save_flyway_forecasts()
+severe_weather <- is_severe_weather_forecasted(forecast)
+print(severe_weather)
 
 # List of Forecast columns
 # Number: of forecast
@@ -169,3 +178,4 @@ fetch_and_save_flyway_forecasts()
 # Icon: URL that provides an icon for the weather (e.g., sunny, cloudy)
 # ShortForecast: Brief written description of the forecast
 # DetailedForecast: In-depth written description of the forecast
+
