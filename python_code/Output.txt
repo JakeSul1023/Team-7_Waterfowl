@@ -1,0 +1,333 @@
+(ducks_env) [teperdomof42@gpunode012 teperdomof42]$ python runducks.py
+
+------------------------------------------------------------
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------
+----------------------
+2025-03-21 21:12:44.884585: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFF
+T factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1742609564.899923  821244 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register f
+actory for plugin cuDNN when one has already been registered
+E0000 00:00:1742609564.904982  821244 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register
+ factory for plugin cuBLAS when one has already been registered
+2025-03-21 21:12:44.922377: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimiz
+ed to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compi
+ler flags.
+------------------------------------------------------------------------------------------------------------------
+---------------
+----------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------
+Libraries installed
+Successfully loaded data from ShortTermSetData(Aug-Sept).csv
+Columns in the dataset: ['event-id', 'visible', 'timestamp', 'location-long', 'location-lat', 'acceleration-raw-x'
+, 'acceleration-raw-y', 'acceleration-raw-z', 'bar:barometric-height', 'battery-charge-percent', 'battery-charging
+-current', 'external-temperature', 'gps:hdop', 'gps:satellite-count', 'gps-time-to-fix', 'ground-speed', 'heading'
+, 'height-above-msl', 'import-marked-outlier', 'gls:light-level', 'mag:magnetic-field-raw-x', 'mag:magnetic-field-
+raw-y', 'mag:magnetic-field-raw-z', 'orn:transmission-protocol', 'tag-voltage', 'sensor-type', 'individual-taxon-c
+anonical-name', 'tag-local-identifier', 'individual-local-identifier', 'study-name']
+=== Duck Data Loaded ===
+Total ducks: 97
+Total observations: 77793
+Sample duck trajectory:
+          event-id  visible  ...            study-name                     geometry
+24856  34958702333     True  ...  Mallard Connectivity   POINT (-100.55173 49.2221)
+24857  34958702334     True  ...  Mallard Connectivity  POINT (-100.55175 49.22199)
+24858  34958702335     True  ...  Mallard Connectivity  POINT (-100.55172 49.22203)
+24859  34958702336     True  ...  Mallard Connectivity  POINT (-100.55203 49.22232)
+24860  34958702337     True  ...  Mallard Connectivity  POINT (-100.55207 49.22242)
+[5 rows x 31 columns]
+
+=== Timestamp Analysis ===
+Total unique timestamps: 76343
+Date range: 2024-08-15 00:00:00 to 2024-09-19 23:58:42
+Forecast JSON Fetched
+{'@context': ['https://geojson.org/geojson-ld/geojson-context.jsonld', {'@ve
+rsion': '1.1', 'wx': 'https://api.weather.gov/ontology#', 'geo': 'http://www
+.opengis.net/ont/geosparql#', 'unit': 'http://codes.wmo.int/common/unit/', '
+@vocab': 'https://api.weather.gov/ontology#'}], 'type': 'Feature', 'geometry
+': {'type': 'Polygon', 'coordinates': [[[-89.9736, 38.9781], [-89.9726, 39.0
+002], [-90.001, 39.001], [-90.0021, 38.978899999999996], [-89.9736, 38.9781]
+]]}, 'properties': {'units': 'us', 'forecastGenerator': 'BaselineForecastGen
+erator', 'generatedAt': '2025-03-24T19:46:58+00:00', 'updateTime': '2025-03-
+24T19:21:36+00:00', 'validTimes': '2025-03-24T13:00:00+00:00/P7DT12H', 'elev
+ation': {'unitCode': 'wmoUnit:m', 'value': 182.88}, 'periods': [{'number': 1
+, 'name': 'This Afternoon', 'startTime': '2025-03-24T14:00:00-05:00', 'endTi
+me': '2025-03-24T18:00:00-05:00', 'isDaytime': True, 'temperature': 58, 'tem
+peratureUnit': 'F', 'temperatureTrend': '', 'probabilityOfPrecipitation': {'
+unitCode': 'wmoUnit:percent', 'value': None}, 'windSpeed': '13 mph', 'windDi
+rection': 'W', 'icon': 'https://api.weather.gov/icons/land/day/sct?size=medi
+um', 'shortForecast': 'Mostly Sunny', 'detailedForecast': 'Mostly sunny, wit
+h a high near 58. West wind around 13 mph, with gusts as high as 21 mph.'}, 
+{'number': 2, 'name': 'Tonight', 'startTime': '2025-03-24T18:00:00-05:00', '
+endTime': '2025-03-25T06:00:00-05:00', 'isDaytime': False, 'temperature': 41
+, 'temperatureUnit': 'F', 'temperatureTrend': '', 'probabilityOfPrecipitatio
+n': {'unitCode': 'wmoUnit:percent', 'value': 40}, 'windSpeed': '8 mph', 'win
+dDirection': 'NE', 'icon': 'https://api.weather.gov/icons/land/night/rain,40
+/rain,30?size=medium', 'shortForecast': 'Chance Light Rain', 'detailedForeca
+st': 'A chance of rain between 7pm and 3am. Mostly cloudy, with a low around
+ 41. Northeast wind around 8 mph. Chance of precipitation is 40%.'}, {'numbe
+r': 3, 'name': 'Tuesday', 'startTime': '2025-03-25T06:00:00-05:00', 'endTime
+': '2025-03-25T18:00:00-05:00', 'isDaytime': True, 'temperature': 59, 'tempe
+ratureUnit': 'F', 'temperatureTrend': '', 'probabilityOfPrecipitation': {'un
+itCode': 'wmoUnit:percent', 'value': None}, 'windSpeed': '6 to 10 mph', 'win
+dDirection': 'N', 'icon': 'https://api.weather.gov/icons/land/day/bkn?size=m
+edium', 'shortForecast': 'Partly Sunny', 'detailedForecast': 'Partly sunny, 
+with a high near 59. North wind 6 to 10 mph.'}, {'number': 4, 'name': 'Tuesd
+ay Night', 'startTime': '2025-03-25T18:00:00-05:00', 'endTime': '2025-03-26T
+06:00:00-05:00', 'isDaytime': False, 'temperature': 37, 'temperatureUnit': '
+F', 'temperatureTrend': '', 'probabilityOfPrecipitation': {'unitCode': 'wmoU
+nit:percent', 'value': None}, 'windSpeed': '3 to 8 mph', 'windDirection': 'N
+W', 'icon': 'https://api.weather.gov/icons/land/night/sct?size=medium', 'sho
+rtForecast': 'Partly Cloudy', 'detailedForecast': 'Partly cloudy, with a low
+ around 37. Northwest wind 3 to 8 mph.'}, {'number': 5, 'name': 'Wednesday',
+ 'startTime': '2025-03-26T06:00:00-05:00', 'endTime': '2025-03-26T18:00:00-0
+5:00', 'isDaytime': True, 'temperature': 61, 'temperatureUnit': 'F', 'temper
+atureTrend': '', 'probabilityOfPrecipitation': {'unitCode': 'wmoUnit:percent
+', 'value': None}, 'windSpeed': '5 to 12 mph', 'windDirection': 'NW', 'icon'
+: 'https://api.weather.gov/icons/land/day/few?size=medium', 'shortForecast':
+ 'Sunny', 'detailedForecast': 'Sunny, with a high near 61. Northwest wind 5 
+to 12 mph.'}, {'number': 6, 'name': 'Wednesday Night', 'startTime': '2025-03
+-26T18:00:00-05:00', 'endTime': '2025-03-27T06:00:00-05:00', 'isDaytime': Fa
+lse, 'temperature': 41, 'temperatureUnit': 'F', 'temperatureTrend': '', 'pro
+babilityOfPrecipitation': {'unitCode': 'wmoUnit:percent', 'value': None}, 'w
+indSpeed': '2 to 7 mph', 'windDirection': 'NE', 'icon': 'https://api.weather
+.gov/icons/land/night/sct?size=medium', 'shortForecast': 'Partly Cloudy', 'd
+etailedForecast': 'Partly cloudy, with a low around 41.'}, {'number': 7, 'na
+me': 'Thursday', 'startTime': '2025-03-27T06:00:00-05:00', 'endTime': '2025-
+03-27T18:00:00-05:00', 'isDaytime': True, 'temperature': 66, 'temperatureUni
+t': 'F', 'temperatureTrend': '', 'probabilityOfPrecipitation': {'unitCode': 
+'wmoUnit:percent', 'value': 50}, 'windSpeed': '6 to 14 mph', 'windDirection'
+: 'S', 'icon': 'https://api.weather.gov/icons/land/day/rain_showers,40/rain_
+showers,50?size=medium', 'shortForecast': 'Chance Rain Showers', 'detailedFo
+recast': 'A chance of rain showers after 7am. Partly sunny, with a high near
+ 66. Chance of precipitation is 50%.'}, {'number': 8, 'name': 'Thursday Nigh
+t', 'startTime': '2025-03-27T18:00:00-05:00', 'endTime': '2025-03-28T06:00:0
+0-05:00', 'isDaytime': False, 'temperature': 53, 'temperatureUnit': 'F', 'te
+mperatureTrend': '', 'probabilityOfPrecipitation': {'unitCode': 'wmoUnit:per
+cent', 'value': 50}, 'windSpeed': '13 mph', 'windDirection': 'S', 'icon': 'h
+ttps://api.weather.gov/icons/land/night/tsra_hi,50/tsra_hi,40?size=medium', 
+'shortForecast': 'Chance Showers And Thunderstorms', 'detailedForecast': 'A 
+chance of rain showers before 7pm, then a chance of showers and thunderstorm
+s between 7pm and 1am, then a chance of showers and thunderstorms. Mostly cl
+oudy, with a low around 53. Chance of precipitation is 50%.'}, {'number': 9,
+ 'name': 'Friday', 'startTime': '2025-03-28T06:00:00-05:00', 'endTime': '202
+5-03-28T18:00:00-05:00', 'isDaytime': True, 'temperature': 77, 'temperatureU
+nit': 'F', 'temperatureTrend': '', 'probabilityOfPrecipitation': {'unitCode'
+: 'wmoUnit:percent', 'value': 40}, 'windSpeed': '10 to 17 mph', 'windDirecti
+on': 'SW', 'icon': 'https://api.weather.gov/icons/land/day/tsra_hi,40/tsra_h
+i,20?size=medium', 'shortForecast': 'Chance Showers And Thunderstorms then S
+light Chance Showers And Thunderstorms', 'detailedForecast': 'A chance of sh
+owers and thunderstorms before 7am, then a slight chance of showers and thun
+derstorms. Mostly sunny, with a high near 77. Chance of precipitation is 40%
+.'}, {'number': 10, 'name': 'Friday Night', 'startTime': '2025-03-28T18:00:0
+0-05:00', 'endTime': '2025-03-29T06:00:00-05:00', 'isDaytime': False, 'tempe
+atureTrend': '', 'probabilityOfPrecipitation': {'unitCode': 'wmoUnit:percent
+', 'value': None}, 'windSpeed': '5 to 12 mph', 'windDirection': 'NW', 'icon'
+: 'https://api.weather.gov/icons/land/day/few?size=medium', 'shortForecast':
+ 'Sunny', 'detailedForecast': 'Sunny, with a high near 61. Northwest wind 5 
+to 12 mph.'}, {'number': 6, 'name': 'Wednesday Night', 'startTime': '2025-03
+-26T18:00:00-05:00', 'endTime': '2025-03-27T06:00:00-05:00', 'isDaytime': Fa
+lse, 'temperature': 41, 'temperatureUnit': 'F', 'temperatureTrend': '', 'pro
+babilityOfPrecipitation': {'unitCode': 'wmoUnit:percent', 'value': None}, 'w
+indSpeed': '2 to 7 mph', 'windDirection': 'NE', 'icon': 'https://api.weather
+.gov/icons/land/night/sct?size=medium', 'shortForecast': 'Partly Cloudy', 'd
+etailedForecast': 'Partly cloudy, with a low around 41.'}, {'number': 7, 'na
+me': 'Thursday', 'startTime': '2025-03-27T06:00:00-05:00', 'endTime': '2025-
+03-27T18:00:00-05:00', 'isDaytime': True, 'temperature': 66, 'temperatureUni
+t': 'F', 'temperatureTrend': '', 'probabilityOfPrecipitation': {'unitCode': 
+'wmoUnit:percent', 'value': 50}, 'windSpeed': '6 to 14 mph', 'windDirection'
+: 'S', 'icon': 'https://api.weather.gov/icons/land/day/rain_showers,40/rain_
+showers,50?size=medium', 'shortForecast': 'Chance Rain Showers', 'detailedFo
+recast': 'A chance of rain showers after 7am. Partly sunny, with a high near
+ 66. Chance of precipitation is 50%.'}, {'number': 8, 'name': 'Thursday Nigh
+t', 'startTime': '2025-03-27T18:00:00-05:00', 'endTime': '2025-03-28T06:00:0
+0-05:00', 'isDaytime': False, 'temperature': 53, 'temperatureUnit': 'F', 'te
+mperatureTrend': '', 'probabilityOfPrecipitation': {'unitCode': 'wmoUnit:per
+cent', 'value': 50}, 'windSpeed': '13 mph', 'windDirection': 'S', 'icon': 'h
+ttps://api.weather.gov/icons/land/night/tsra_hi,50/tsra_hi,40?size=medium', 
+'shortForecast': 'Chance Showers And Thunderstorms', 'detailedForecast': 'A 
+chance of rain showers before 7pm, then a chance of showers and thunderstorm
+s between 7pm and 1am, then a chance of showers and thunderstorms. Mostly cl
+oudy, with a low around 53. Chance of precipitation is 50%.'}, {'number': 9,
+ 'name': 'Friday', 'startTime': '2025-03-28T06:00:00-05:00', 'endTime': '202
+5-03-28T18:00:00-05:00', 'isDaytime': True, 'temperature': 77, 'temperatureU
+nit': 'F', 'temperatureTrend': '', 'probabilityOfPrecipitation': {'unitCode'
+: 'wmoUnit:percent', 'value': 40}, 'windSpeed': '10 to 17 mph', 'windDirecti
+on': 'SW', 'icon': 'https://api.weather.gov/icons/land/day/tsra_hi,40/tsra_h
+i,20?size=medium', 'shortForecast': 'Chance Showers And Thunderstorms then S
+light Chance Showers And Thunderstorms', 'detailedForecast': 'A chance of sh
+owers and thunderstorms before 7am, then a slight chance of showers and thun
+derstorms. Mostly sunny, with a high near 77. Chance of precipitation is 40%
+.'}, {'number': 10, 'name': 'Friday Night', 'startTime': '2025-03-28T18:00:0
+0-05:00', 'endTime': '2025-03-29T06:00:00-05:00', 'isDaytime': False, 'tempe
+rature': 57, 'temperatureUnit': 'F', 'temperatureTrend': '', 'probabilityOfP
+recipitation': {'unitCode': 'wmoUnit:percent', 'value': 30}, 'windSpeed': '1
+5 mph', 'windDirection': 'S', 'icon': 'https://api.weather.gov/icons/land/ni
+ght/tsra_hi,20/tsra_hi,30?size=medium', 'shortForecast': 'Slight Chance Show
+ers And Thunderstorms then Chance Showers And Thunderstorms', 'detailedForec
+ast': 'A slight chance of showers and thunderstorms before 7pm, then a chanc
+e of showers and thunderstorms. Mostly cloudy, with a low around 57. Chance 
+of precipitation is 30%.'}, {'number': 11, 'name': 'Saturday', 'startTime': 
+'2025-03-29T06:00:00-05:00', 'endTime': '2025-03-29T18:00:00-05:00', 'isDayt
+ime': True, 'temperature': 74, 'temperatureUnit': 'F', 'temperatureTrend': '
+', 'probabilityOfPrecipitation': {'unitCode': 'wmoUnit:percent', 'value': 60
+}, 'windSpeed': '12 to 16 mph', 'windDirection': 'S', 'icon': 'https://api.w
+eather.gov/icons/land/day/tsra_sct,60?size=medium', 'shortForecast': 'Shower
+s And Thunderstorms Likely', 'detailedForecast': 'Showers and thunderstorms 
+likely. Mostly cloudy, with a high near 74. Chance of precipitation is 60%.'
+}, {'number': 12, 'name': 'Saturday Night', 'startTime': '2025-03-29T18:00:0
+0-05:00', 'endTime': '2025-03-30T06:00:00-05:00', 'isDaytime': False, 'tempe
+rature': 54, 'temperatureUnit': 'F', 'temperatureTrend': '', 'probabilityOfP
+recipitation': {'unitCode': 'wmoUnit:percent', 'value': 70}, 'windSpeed': '1
+5 mph', 'windDirection': 'S', 'icon': 'https://api.weather.gov/icons/land/ni
+ght/tsra_sct,60/tsra_sct,70?size=medium', 'shortForecast': 'Showers And Thun
+derstorms Likely', 'detailedForecast': 'A chance of rain showers before 7pm,
+ then showers and thunderstorms likely. Mostly cloudy, with a low around 54.
+ Chance of precipitation is 70%.'}, {'number': 13, 'name': 'Sunday', 'startT
+ime': '2025-03-30T06:00:00-05:00', 'endTime': '2025-03-30T18:00:00-05:00', '
+isDaytime': True, 'temperature': 67, 'temperatureUnit': 'F', 'temperatureTre
+nd': '', 'probabilityOfPrecipitation': {'unitCode': 'wmoUnit:percent', 'valu
+e': 70}, 'windSpeed': '12 to 16 mph', 'windDirection': 'SW', 'icon': 'https:
+//api.weather.gov/icons/land/day/tsra_sct,70/tsra_sct,50?size=medium', 'shor
+tForecast': 'Showers And Thunderstorms Likely then Chance Showers And Thunde
+rstorms', 'detailedForecast': 'Showers and thunderstorms likely before 7am, 
+then a chance of showers and thunderstorms between 7am and 1pm, then a chanc
+e of showers and thunderstorms. Partly sunny, with a high near 67. Chance of
+ precipitation is 70%.'}, {'number': 14, 'name': 'Sunday Night', 'startTime'
+: '2025-03-30T18:00:00-05:00', 'endTime': '2025-03-31T06:00:00-05:00', 'isDa
+ytime': False, 'temperature': 38, 'temperatureUnit': 'F', 'temperatureTrend'
+: '', 'probabilityOfPrecipitation': {'unitCode': 'wmoUnit:percent', 'value':
+ 50}, 'windSpeed': '12 to 15 mph', 'windDirection': 'NW', 'icon': 'https://a
+pi.weather.gov/icons/land/night/tsra_sct,50/tsra_sct,30?size=medium', 'short
+Forecast': 'Chance Showers And Thunderstorms', 'detailedForecast': 'A chance
+ of showers and thunderstorms. Mostly cloudy, with a low around 38. Chance o
+f precipitation is 50%.'}]}}
+Fetched data for station station_0 - Holden Agdm
+Fetched data for station station_1 - Athabasca 1
+Fetched data for station station_2 - Jan Mayen
+
+=== Weather Data Fetched ===
+Total records: 498
+Date range: 0 to 497
+Parameters: ['temp', 'dwpt', 'rhum', 'prcp', 'snow', 'wdir', 'wspd', 'wpgt',
+ 'pres', 'tsun', 'coco', 'station_id', 'station_name', 'latitude', 'longitud
+e']
+Fetching forecast for point (28.0, -98.0)...
+Forecast JSON Fetched
+Fetching forecast for point (28.0, -95.0)...
+Error fetching forecast for point (28.0, -95.0): 404 Client Error: Not Found
+ for url: https://api.weather.gov/gridpoints/HGX/79,19/forecast
+Fetching forecast for point (28.0, -92.0)...
+Error fetching forecast for point (28.0, -92.0): Forecast URL not found in N
+OAA response.
+Fetching forecast for point (28.0, -89.0)...
+Error fetching forecast for point (28.0, -89.0): 404 Client Error: Not Found
+ for url: https://api.weather.gov/gridpoints/LIX/112,4/forecast
+Fetching forecast for point (28.0, -86.0)...
+Error fetching forecast for point (28.0, -86.0): Forecast URL not found in N
+OAA response.
+Fetching forecast for point (28.0, -83.0)...
+Error fetching forecast for point (28.0, -83.0): 404 Client Error: Not Found
+ for url: https://api.weather.gov/gridpoints/TBW/50,98/forecast
+Fetching forecast for point (31.0, -98.0)...
+Forecast JSON Fetched
+Fetching forecast for point (31.0, -95.0)...
+Forecast JSON Fetched
+Fetching forecast for point (31.0, -92.0)...
+Forecast JSON Fetched
+Fetching forecast for point (31.0, -89.0)...
+Forecast JSON Fetched
+Fetching forecast for point (31.0, -86.0)...
+Forecast JSON Fetched
+Fetching forecast for point (31.0, -83.0)...
+Forecast JSON Fetched
+Fetching forecast for point (34.0, -98.0)...
+Forecast JSON Fetched
+Fetching forecast for point (34.0, -95.0)...
+Forecast JSON Fetched
+=== Flyway Region ===
+Bounding box: [-98.0, 28.0, -82.0, 49.0]
+=Fetching forecast for point (34.0, -92.0)...
+Forecast JSON Fetched
+Fetching forecast for point (34.0, -89.0)...
+Forecast JSON Fetched
+Fetching forecast for point (34.0, -86.0)...
+Forecast JSON Fetched
+Fetching forecast for point (34.0, -83.0)...
+Forecast JSON Fetched
+Fetching forecast for point (37.0, -98.0)...
+Forecast JSON Fetched
+Fetching forecast for point (37.0, -95.0)...
+Forecast JSON Fetched
+Fetching forecast for point (37.0, -92.0)...
+Forecast JSON Fetched
+Fetching forecast for point (37.0, -89.0)...
+Forecast JSON Fetched
+Fetching forecast for point (37.0, -86.0)...
+Forecast JSON Fetched
+Fetching forecast for point (37.0, -83.0)...
+Forecast JSON Fetched
+Fetching forecast for point (40.0, -98.0)...
+Forecast JSON Fetched
+Fetching forecast for point (40.0, -95.0)...
+Forecast JSON Fetched
+Fetching forecast for point (40.0, -92.0)...
+Forecast JSON Fetched
+Fetching forecast for point (40.0, -89.0)...
+Forecast JSON Fetched
+Fetching forecast for point (40.0, -86.0)...
+Forecast JSON Fetched
+Fetching forecast for point (40.0, -83.0)...
+Forecast JSON Fetched
+Fetching forecast for point (43.0, -98.0)...
+Forecast JSON Fetched
+Fetching forecast for point (43.0, -95.0)...
+Forecast JSON Fetched
+Fetching forecast for point (43.0, -92.0)...
+Forecast JSON Fetched
+Fetching forecast for point (43.0, -89.0)...
+Forecast JSON Fetched
+Fetching forecast for point (43.0, -86.0)...
+Forecast JSON Fetched
+Fetching forecast for point (43.0, -83.0)...
+Forecast JSON Fetched
+Fetching forecast for point (46.0, -98.0)...
+Forecast JSON Fetched
+Fetching forecast for point (46.0, -95.0)...
+Forecast JSON Fetched
+Fetching forecast for point (46.0, -92.0)...
+Forecast JSON Fetched
+Fetching forecast for point (46.0, -89.0)...
+Forecast JSON Fetched
+Fetching forecast for point (46.0, -86.0)...
+Forecast JSON Fetched
+Fetching forecast for point (46.0, -83.0)...
+Error fetching forecast for point (46.0, -83.0): 404 Client Error: Not Found
+ for url: https://api.weather.gov/points/46,-83
+=== NOAA Forecast Data Summary ===
+Total forecast records: 144
+Sample forecast data:
+    lat   lon  ... windDirection                            shortForecast
+0  28.0 -98.0  ...            SE           Areas Of Fog then Mostly Sunny
+1  28.0 -98.0  ...            SE                            Mostly Cloudy
+2  28.0 -98.0  ...            SE                            Mostly Cloudy
+3  28.0 -98.0  ...           ESE  Slight Chance Showers And Thunderstorms
+4  31.0 -98.0  ...           SSW                                    Sunny
+5  31.0 -98.0  ...           SSE                            Partly Cloudy
+6  31.0 -98.0  ...           SSE                             Partly Sunny
+7  31.0 -98.0  ...           SSE  Slight Chance Showers And Thunderstorms
+8  31.0 -95.0  ...             W                    Patchy Fog then Sunny
+9  31.0 -95.0  ...             S             Mostly Clear then Patchy Fog
+[10 rows x 9 columns]
+Traceback (most recent call last):
+  File "/work/projects/csc4610-2024f-cohen/teperdomof42/runducks.py", line 8
+2, in <module>
+    weather_rasters = create_weather_raster_timeseries(weather_data,load_duc
+k_data, flyway_bbox, resolution=0.5)
+  File "/work/projects/csc4610-2024f-cohen/teperdomof42/duck_migration_predi
+ction.py", line 332, in create_weather_raster_timeseries
+    if 'timestamp' not in load_duck_data.column:
+AttributeError: 'function' object has no attribute 'column'
+(ducks_env) [teperdomof42@gpunode012 teperdomof42]$ 
