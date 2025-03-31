@@ -143,13 +143,13 @@ def fetch_noaa_forecast_for_point(lat, lon, token):
     """
     Fetch forecast JSON from NOAA NWS API for a given point.
     Also returns the nearest city/state name if available.
-    
+
     Parameters:
       - lat, lon: Latitude and Longitude.
       - token: NOAA API token.
-      
+
     Returns:
-      - JSON object with forecast data.
+      - Tuple of (forecast JSON object, nearest city/state string)
     """
     points_url = f"https://api.weather.gov/points/{lat},{lon}"
     headers = {
@@ -181,11 +181,12 @@ def fetch_noaa_forecast_for_point(lat, lon, token):
         forecast_response.raise_for_status()
         forecast_json = forecast_response.json()
         print("Forecast JSON Fetched")
-        return forecast_json
+        return forecast_json, location_name
     except requests.exceptions.HTTPError as e:
         raise RuntimeError(f"Forecast URL returned 404 or error: {e}")
     except Exception as e:
         raise RuntimeError(f"Failed to retrieve forecast from {forecast_url}: {e}")
+
 
 
 def fetch_weather_data(stations, start_date, end_date):
@@ -299,41 +300,35 @@ def is_valid_noaa_point(lat, lon, token):
 
 
 # Modify fetch_weather_forecast to be more resilient
-def fetch_weather_forecast_robust(bbox, resolution= .25, forecast_dates=None, token="your_token"):
-    """More robust version of fetch_weather_forecast that handles errors gracefully"""
+def fetch_weather_forecast_robust(bbox, resolution=2.0, forecast_dates=None, token="your_token"):
+    """More robust version of fetch_weather_forecast that handles errors gracefully and includes nearest NOAA location"""
+    from datetime import datetime
+    import pandas as pd
+    import numpy as np
+    import requests
+
     # Unpack bounding box
     lon_min, lat_min, lon_max, lat_max = bbox
-    
-    # Create grid points with wider spacing
+
+    # Create grid points
     lats = np.arange(lat_min, lat_max, resolution)
     lons = np.arange(lon_min, lon_max, resolution)
-    
+
     records = []
-    
+
     # Process forecast dates
     if forecast_dates is not None:
         forecast_dates_set = set(d.date() for d in forecast_dates)
     else:
         forecast_dates_set = None
-    
-    # Add delay between requests to avoid rate limiting
-    request_delay = 1  # seconds
-    
-    # Loop over grid points
+
     for lat in lats:
         for lon in lons:
-            # Slight jitter to avoid invalid edge zones
             lat_j = lat + np.random.uniform(-0.05, 0.05)
             lon_j = lon + np.random.uniform(-0.05, 0.05)
 
-            # Validate the point before fetching
-            if not is_valid_noaa_point(lat_j, lon_j, token):
-                print(f"Skipping invalid NOAA point ({lat_j:.2f}, {lon_j:.2f})")
-                continue
-
             try:
-                print(f"Fetching forecast for point ({lat_j:.2f}, {lon_j:.2f})...")
-                forecast_json = fetch_noaa_forecast_for_point(lat_j, lon_j, token)
+                forecast_json, location_name = fetch_noaa_forecast_for_point(lat_j, lon_j, token)
 
                 periods = forecast_json.get("properties", {}).get("periods", [])
                 if not periods:
@@ -349,13 +344,12 @@ def fetch_weather_forecast_robust(bbox, resolution= .25, forecast_dates=None, to
                         record = {
                             "lat": lat_j,
                             "lon": lon_j,
-                            "startTime": period_start,
-                            "endTime": pd.to_datetime(period["endTime"]),
                             "temperature": period["temperature"],
                             "temperatureUnit": period["temperatureUnit"],
                             "windSpeed": period["windSpeed"],
                             "windDirection": period["windDirection"],
-                            "shortForecast": period["shortForecast"]
+                            "shortForecast": period["shortForecast"],
+                            "nearest_location": location_name
                         }
                         records.append(record)
                     except Exception as e:
@@ -363,16 +357,20 @@ def fetch_weather_forecast_robust(bbox, resolution= .25, forecast_dates=None, to
             except Exception as e:
                 print(f"Error fetching forecast for point ({lat_j:.2f}, {lon_j:.2f}): {e}")
 
-    
     if records:
         forecast_df = pd.DataFrame(records)
         print(f"\n=== NOAA Forecast Data Summary ===")
         print(f"Total forecast records: {len(forecast_df)}")
-        print(f"Sample forecast data:\n{forecast_df.head(10)}")
+        print("Sample forecast data with nearest NOAA locations:")
+        print(forecast_df[[
+            'lat', 'lon', 'nearest_location', 'temperature', 
+            'temperatureUnit', 'windSpeed', 'windDirection', 'shortForecast'
+        ]].head(10))
         return forecast_df
     else:
         print("No forecast data could be generated.")
         return pd.DataFrame()
+
 
 # ========================================================
 # Spatial Data Processing
