@@ -208,12 +208,8 @@ def graph_ducks(G, edges, duck_edge_map, duck_colors):
     #Swapping format for 'big data' (can be expanded upon)
     if(len(G.nodes) > 10000):
         pos = nx.random_layout(G)
-<<<<<<< Updated upstream
-
-=======
     
     #Adding nodes to graph
->>>>>>> Stashed changes
     nx.draw_networkx_nodes(G, pos, node_size=100, node_color='skyblue')
 
     #Adding edges between nodes (need to remove unneccesary color functionality)
@@ -354,12 +350,7 @@ if __name__ == "__main__":
     #Assigning each duck a unique color (remove in Iteration 5)
     duck_colors = generate_duck_colors(ducks)
 
-<<<<<<< Updated upstream
     #graph_ducks(G, edges, duck_edge_map, duck_colors)
-=======
-    #Finalizing graph
-    graph_ducks(G, edges, duck_edge_map, duck_colors)
->>>>>>> Stashed changes
 
     #Prediction testing, validation still required
     test_duck = ducks[sampleDucks[0]]
