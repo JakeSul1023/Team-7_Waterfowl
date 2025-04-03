@@ -28,6 +28,7 @@ class Duck():
     #Variable initializations
     def __init__(self, duckID):
         self.duckID = duckID
+        self.species = ''
         self.longs = []
         self.lats = []
         self.coord = []
@@ -37,7 +38,13 @@ class Duck():
 
         #Saving duck ID's
         duck_data = df[df['tag-local-identifier'] == self.duckID]
-       
+
+        #Saving 
+        self.species = duck_data['individual-taxon-canonical-name']
+
+        #Saving timestamps
+        self.timestamps = duck_data['timestamp'].tolist()
+
         #Saving longitudes
         self.long = duck_data['location-long'].tolist()
 
@@ -46,6 +53,28 @@ class Duck():
 
         #Combining coordinates
         self.coord = list(zip(self.long, self.lat))
+
+
+#Function to print duck data fro testing purposes
+def print_duck_data(ducks_dict, label="Duck Data"):
+    print(f"\n{label}:")
+    print("-"*25)
+
+    for duck_id, duck in ducks_dict.items():
+        print(f"Duck ID: {duck_id}")
+        print(f"  Timestamps: {duck.timestamps[:3]}{'...' if len(duck.timestamps) > 3 else ''}")
+        
+        # Print the first 3 coordinates
+        print("  Coordinates (long, lat):")
+        for i, (lng, lat) in enumerate(duck.coord[:3]):
+            print(f"    {i+1}: ({lng}, {lat})")
+        
+        if len(duck.coord) > 3:
+            print("    ...")
+            
+        # Print the total number of coordinates
+        print(f"  Total locations: {len(duck.coord)}")
+        print("-" * 30)
 
 
 #Function to count the number of unique ducks present in the data set
@@ -66,9 +95,9 @@ def selectDucks(totalDucks, duckList):
     #Asking user for number of desired modeling units
     print("Total Number of unique duck IDs imported: ", totalDucks)
     portion = int(input("How many ducks would you like to model with? "))
-    sampleList = random.sample(duckList, portion)
+    sampleIDs = random.sample(duckList, portion)
 
-    return sampleList
+    return sampleIDs
 
 
 #Function to create a node for each duck present in the data set
@@ -92,11 +121,41 @@ def normalize_factor(val1, val2, threshhold=0.2):
     return max(0, min(1, weight))
 
 
-#Function to determine final weight of edges between each connections
-def calculate_edge_weight(node1, node2, df, duck_id, available_factors, factors_weight=None):
+#Function to round off latitude/longitutde coordinates
+def loc_round(rawDucks, roundPoint):
     
-    if factors_weight is None:
-        factors_weight = {factor: 1.0/len(available_factors) for factor in available_factors}
+    roundedDucks = {}
+
+    #Processing each duck
+    for duck_id, duck in rawDucks.items():
+
+        #Creating a new duck object based off the Duck class
+        rounded_duck = Duck(duck_id)
+        
+        #Copying species
+        rounded_duck.species = duck.species
+
+        #Copying timestamps
+        rounded_duck.timestamps = duck.timestamps.copy() if hasattr(duck, 'timestamps') else []
+        
+        #Rounding coordinates
+        rounded_long = [round(lng, roundPoint) for lng in duck.long]
+        rounded_lat = [round(lat, roundPoint) for lat in duck.lat]
+
+        #Updating duck with rounded coordinates
+        rounded_duck.long = rounded_long
+        rounded_duck.lat = rounded_lat
+        rounded_duck.coord = list(zip(rounded_long, rounded_lat))
+        roundedDucks[duck_id] = rounded_duck
+    
+        return roundedDucks
+
+
+#Function to determine final weight of edges between each connections
+def calculate_edge_weight(node1, node2, df, duck_id): #available_factors, factors_weight=None
+    
+    #if factors_weight is None:
+    #    factors_weight = {factor: 1.0/len(available_factors) for factor in available_factors}
     
     duck_data = df[df['tag-local-identifier'] == duck_id]
     
@@ -115,52 +174,48 @@ def calculate_edge_weight(node1, node2, df, duck_id, available_factors, factors_
     
     #Normalize all factor values between 0 and 1
     factor_values = []
-    for factor in available_factors:
-        try:
-            factor_values.append(
-                normalize_factor(
-                    node1_data[factor].values[0], 
-                    node2_data[factor].values[0]
-                )
-            )
-        except KeyError:
-            print(f"Warning: Factor {factor} not found in the DataFrame.")
-            continue
+    #for factor in available_factors:
+        #try:
+        #    factor_values.append(
+        #        normalize_factor(
+        #            node1_data[factor].values[0], 
+        #            node2_data[factor].values[0]
+        #        )
+        #    )
+        #except KeyError:
+        #    print(f"Warning: Factor {factor} not found in the DataFrame.")
+        #    continue
     
     #Returning standard weight value if none can be found/applied
     if not factor_values:
         return 0.5
     
     #Adding all weights together for given edge
-    edge_weight = sum(
-        factors_weight.get(available_factors[i], 0) * value 
-        for i, value in enumerate(factor_values)
-    )
+    #edge_weight = sum(
+    #    factors_weight.get(available_factors[i], 0) * value 
+    #    for i, value in enumerate(factor_values)
+    #)
     
     #Min function used to ensure weight is no greater than 1
-    return max(0, min(1, edge_weight))
+    return max(0, 0.5) #min(1, edge_weight)
 
 
 #Function to apply calculated/finalized weights to resepective edges
-def add_edge_weights(G, edge_count, df, ducks, available_factors, factors_weight=None):
-
-    #Cycling through all available edges
-    for edge, count in edge_count.items():
-        edge_ducks = [duck for duck in ducks.values() if edge in list(zip(duck.coord[:-1], duck.coord[1:]))]
-        
-        #For all valid edges, calculating their weights
-        if edge_ducks:
-            weights = [
-                calculate_edge_weight(
-                    edge[0], edge[1], df, duck.duckID, available_factors, factors_weight
-                ) for duck in edge_ducks
-            ]
-            #Determining edge's rough average weight
-            avg_weight = np.mean(weights)
-            
-            #Adding completed edge to graph
-            G.add_edge(edge[0], edge[1], weight=avg_weight)
-
+def add_edge_weights(G, edges):
+ 
+     edge_count = {}
+ 
+     for edge in edges:
+         if edge not in edge_count:
+             edge_count[edge] = 1
+         else:
+             edge_count[edge] += 1
+ 
+     for edge, count in edge_count.items():
+         if G.has_edge(*edge):
+             G[edge[0]][edge[1]]['weight'] += count  
+         else:
+             G.add_edge(edge[0], edge[1], weight=count)
 
 #Function to predict next location of duck
 def predict_next_location(G, current_location):
@@ -305,6 +360,28 @@ def process_weather(weather_raw):
     weather_filtered = pd.DataFrame(relevant_data)
     return weather_filtered
 
+def compare_reduction(originalDucks, roundedDucks):
+
+    original_nodes = set()
+    for duck in originalDucks.values():
+        original_nodes.update(duck.coord)
+
+    rounded_nodes = set()
+    for duck in roundedDucks.values():
+        rounded_nodes.update(duck.coord)
+
+    original_count = len(original_nodes)
+    rounded_count = len(rounded_nodes)
+
+    if original_count > 0:
+        percent_reduction = ((original_count - rounded_count) / original_count) * 100
+    else:
+        percent_reduction = 0
+
+    print(f"Origianl Nodes: {original_count}")
+    print(f"Rounded Nodes: {rounded_count}")
+    print(f"Reduction: {percent_reduction:.2f}%")
+    
 if __name__ == "__main__":
 
     #Reading in data set
@@ -316,6 +393,7 @@ if __name__ == "__main__":
     #Creating scalable, random sample of ducks
     sampleDucks = selectDucks(total, uniqueIDs)
 
+    print(f"Selected duck IDs: {sampleDucks}")
 
     #Declaration for duck storage
     ducks = {}
@@ -326,15 +404,22 @@ if __name__ == "__main__":
         duck.importLoc(df)
         ducks[duck_id] = duck
 
+    #Printing original duck data (for testing purposes)
+    print_duck_data(ducks, "Original Duck Data")
+
+    roundedDucks = loc_round(ducks, roundPoint=3)
+    print_duck_data(roundedDucks, "Rounded Duck Data")
+    compare_reduction(ducks, roundedDucks)
+
     #Graph initialization (empty)
     G = nx.Graph()
 
     #Getting and setting nodes to the map
-    nodes = create_nodes(ducks)
+    nodes = create_nodes(roundedDucks)
     G.add_nodes_from(nodes)
 
     #Creating raw edges
-    edges,duck_edge_map, edge_count = create_edges(ducks)
+    edges,duck_edge_map, edge_count = create_edges(roundedDucks)
     
     #Adjustable weight for each covariance
     factor_weights = {
@@ -345,20 +430,21 @@ if __name__ == "__main__":
     }  
     
     #Adding weights to graph
-    add_edge_weights(G, edge_count, df, ducks, factor_weights)
-
+    add_edge_weights(G, edges) #edge_count, df, roundedDucks, factor_weights
+    print("Added edge weights")
     #Assigning each duck a unique color (remove in Iteration 5)
-    duck_colors = generate_duck_colors(ducks)
+    duck_colors = generate_duck_colors(roundedDucks)
 
     #graph_ducks(G, edges, duck_edge_map, duck_colors)
 
     #Prediction testing, validation still required
-    test_duck = ducks[sampleDucks[0]]
+    test_duck = roundedDucks[sampleDucks[0]]
     current_location = test_duck.coord[-1]
-    #print("Current Location: ", test_duck.duckID, " , ", current_location)
+    print("Current Location: ", test_duck.duckID, " , ", current_location)
     next_location = predict_next_location(G, current_location)
-    #print("Predicted next: ", next_location)
+    print("Predicted next: ", next_location)
 
+'''
     print(" ")
     print("*"*10)
     print("Weather Testing")
@@ -368,3 +454,4 @@ if __name__ == "__main__":
     weather_r = get_weather(lat, lon)
     weather_f = process_weather(weather_r)
     print(f"Weather data: {weather_f}")   
+'''
