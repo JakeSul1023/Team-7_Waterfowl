@@ -18,6 +18,8 @@ import random
 import networkx as nx
 import numpy as np
 import requests
+from math import sqrt
+from sklearn.cluster import DBSCAN
 
 #Stored API Token
 NOAA_TOKEN = "pKsYMZQINiCtWEbiUdvJHImQDqYlZmhu"
@@ -39,7 +41,7 @@ class Duck():
         #Saving duck ID's
         duck_data = df[df['tag-local-identifier'] == self.duckID]
 
-        #Saving 
+        #Saving species
         self.species = duck_data['individual-taxon-canonical-name']
 
         #Saving timestamps
@@ -55,8 +57,9 @@ class Duck():
         self.coord = list(zip(self.long, self.lat))
 
 
-#Function to print duck data fro testing purposes
+#Function to print duck data for testing purposes
 def print_duck_data(ducks_dict, label="Duck Data"):
+
     print(f"\n{label}:")
     print("-"*25)
 
@@ -64,7 +67,7 @@ def print_duck_data(ducks_dict, label="Duck Data"):
         print(f"Duck ID: {duck_id}")
         print(f"  Timestamps: {duck.timestamps[:3]}{'...' if len(duck.timestamps) > 3 else ''}")
         
-        # Print the first 3 coordinates
+        #Print the first 3 coordinates
         print("  Coordinates (long, lat):")
         for i, (lng, lat) in enumerate(duck.coord[:3]):
             print(f"    {i+1}: ({lng}, {lat})")
@@ -72,7 +75,7 @@ def print_duck_data(ducks_dict, label="Duck Data"):
         if len(duck.coord) > 3:
             print("    ...")
             
-        # Print the total number of coordinates
+        #Print the total number of coordinates
         print(f"  Total locations: {len(duck.coord)}")
         print("-" * 30)
 
@@ -121,197 +124,166 @@ def normalize_factor(val1, val2, threshhold=0.2):
     return max(0, min(1, weight))
 
 
-#Function to round off latitude/longitutde coordinates
-def loc_round(rawDucks, roundPoint):
+#Calculate Haversine distance between two geographic coordinates
+def haversine_distance(coord1, coord2):
+
+    #Converting decimal degrees to radians
+    lon1, lat1 = coord1
+    lon2, lat2 = coord2
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
     
-    roundedDucks = {}
+    #Haversine formula implementation
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
+    c = 2 * np.arcsin(np.sqrt(a))
+    r = 6371  #Radius of earth in kilometers
+    
+    return c * r
 
-    #Processing each duck
-    for duck_id, duck in rawDucks.items():
 
-        #Creating a new duck object based off the Duck class
-        rounded_duck = Duck(duck_id)
+#Create proximity-based graph preserving all original locations
+def create_proximity_graph(ducks, proximity_threshold=0.5, sequential_weight=5.0):
+    """
+    Overall process - creates a graph that preserves all original locations and adds both:
+    1. Sequential edges based on duck movements (heavily weighted)
+    2. Proximity edges between nearby nodes (lighter weights)
+    Arg specifications: 
+        proximity_threshold: Distance threshold in km to consider nodes as connected
+        sequential_weight: Base weight for sequential edges (actual duck movements)
+    """
+    # Create graph
+    G = nx.Graph()
+    
+    #Set all nodes while preserving all, full locations
+    nodes = create_nodes(ducks)
+    G.add_nodes_from(nodes)
+    print(f"Added {len(nodes)} unique location nodes to graph")
+    
+    #Adding all sequential edges (actual duck movements)
+    print("Adding sequential edges based on duck movements...")
+    sequential_edges = []
+    edge_count = {}
+    duck_edge_map = {}
+    
+    for duck in ducks.values():
+        for i in range(len(duck.coord) - 1):
+            node1 = duck.coord[i]
+            node2 = duck.coord[i + 1]
+            
+            #Skipping self-loops
+            if node1 == node2:
+                continue
+                
+            edge = (node1, node2)
+            sequential_edges.append(edge)
+            
+            #Counting how many times each edge appears
+            edge_count[edge] = edge_count.get(edge, 0) + 1
+            
+            #Storing which ducks used each edge
+            if edge in duck_edge_map:
+                duck_edge_map[edge].add(duck.duckID)
+            else:
+                duck_edge_map[edge] = {duck.duckID}
+    
+    #Adding sequential edges with weights based on frequency
+    for edge, count in edge_count.items():
+        weight = sequential_weight * count  #Note: Higher weight for frequently used paths
+        G.add_edge(edge[0], edge[1], weight=weight, edge_type='sequential', 
+                   count=count, ducks=list(duck_edge_map[edge]))
+    
+    print(f"Added {len(edge_count)} sequential edges")
+    
+    #Adding proximity edges between nearby nodes that aren't already connected
+    print("Adding proximity edges between nearby locations...")
+    proximity_edges_added = 0
+    
+    #Checking nodes that are likely to be close (to maintain efficiency)
+    #Grouping nodes into geographic bins
+    bin_size = proximity_threshold * 2  #Note: km in longitude/latitude
+    node_bins = {}
+    
+    for node in nodes:
+        #Creating a bin key based on rough geographic location
+        bin_x = int(node[0] / bin_size)
+        bin_y = int(node[1] / bin_size)
+        bin_key = (bin_x, bin_y)
         
-        #Copying species
-        rounded_duck.species = duck.species
-
-        #Copying timestamps
-        rounded_duck.timestamps = duck.timestamps.copy() if hasattr(duck, 'timestamps') else []
+        if bin_key in node_bins:
+            node_bins[bin_key].append(node)
+        else:
+            node_bins[bin_key] = [node]
+    
+    #Checking proximity only for nodes in the same or adjacent bins
+    for bin_key, bin_nodes in node_bins.items():
+        bin_x, bin_y = bin_key
         
-        #Rounding coordinates
-        rounded_long = [round(lng, roundPoint) for lng in duck.long]
-        rounded_lat = [round(lat, roundPoint) for lat in duck.lat]
+        #Getting nodes from current and adjacent bins
+        nearby_nodes = bin_nodes.copy()
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                adj_key = (bin_x + dx, bin_y + dy)
+                if adj_key in node_bins and adj_key != bin_key:
+                    nearby_nodes.extend(node_bins[adj_key])
+        
+        #Checking proximity for nodes in this extended set
+        for i, node1 in enumerate(bin_nodes):
+            for node2 in nearby_nodes[i+1:]:  #Note: Starting from i+1 to avoid duplicate checks
+                #Skipping if already connected by sequential edge
+                if G.has_edge(node1, node2):
+                    continue
+                
+                #Calculating distance
+                distance = haversine_distance(node1, node2)
+                
+                #Connecting if within threshold
+                if distance <= proximity_threshold:
+                    #Weighting inversely proportional to distance (closer = stronger connection)
+                    #Note: always less than sequential edges
+                    weight = (1.0 - (distance / proximity_threshold)) * (sequential_weight * 0.5)
+                    G.add_edge(node1, node2, weight=weight, edge_type='proximity', 
+                              distance=distance)
+                    proximity_edges_added += 1
+    
+    print(f"Added {proximity_edges_added} proximity edges")
+    print(f"Total graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    
+    return G, duck_edge_map
 
-        #Updating duck with rounded coordinates
-        rounded_duck.long = rounded_long
-        rounded_duck.lat = rounded_lat
-        rounded_duck.coord = list(zip(rounded_long, rounded_lat))
-        roundedDucks[duck_id] = rounded_duck
-    
-        return roundedDucks
-
-
-#Function to determine final weight of edges between each connections
-def calculate_edge_weight(node1, node2, df, duck_id): #available_factors, factors_weight=None
-    
-    #if factors_weight is None:
-    #    factors_weight = {factor: 1.0/len(available_factors) for factor in available_factors}
-    
-    duck_data = df[df['tag-local-identifier'] == duck_id]
-    
-    node1_data = duck_data[
-        (duck_data['location-long'] == node1[0]) & 
-        (duck_data['location-lat'] == node1[1])
-    ]
-    node2_data = duck_data[
-        (duck_data['location-long'] == node2[0]) & 
-        (duck_data['location-lat'] == node2[1])
-    ]
-    
-    #Returning a middle of the road weight if no values can be applied
-    if node1_data.empty or node2_data.empty:
-        return 0.5  
-    
-    #Normalize all factor values between 0 and 1
-    factor_values = []
-    #for factor in available_factors:
-        #try:
-        #    factor_values.append(
-        #        normalize_factor(
-        #            node1_data[factor].values[0], 
-        #            node2_data[factor].values[0]
-        #        )
-        #    )
-        #except KeyError:
-        #    print(f"Warning: Factor {factor} not found in the DataFrame.")
-        #    continue
-    
-    #Returning standard weight value if none can be found/applied
-    if not factor_values:
-        return 0.5
-    
-    #Adding all weights together for given edge
-    #edge_weight = sum(
-    #    factors_weight.get(available_factors[i], 0) * value 
-    #    for i, value in enumerate(factor_values)
-    #)
-    
-    #Min function used to ensure weight is no greater than 1
-    return max(0, 0.5) #min(1, edge_weight)
-
-
-#Function to apply calculated/finalized weights to resepective edges
-def add_edge_weights(G, edges):
- 
-     edge_count = {}
- 
-     for edge in edges:
-         if edge not in edge_count:
-             edge_count[edge] = 1
-         else:
-             edge_count[edge] += 1
- 
-     for edge, count in edge_count.items():
-         if G.has_edge(*edge):
-             G[edge[0]][edge[1]]['weight'] += count  
-         else:
-             G.add_edge(edge[0], edge[1], weight=count)
 
 #Function to predict next location of duck
-def predict_next_location(G, current_location):
-
-    #Finding all neighboring nodes
+def predict_next_location(G, current_location, prefer_sequential=True):
+    # Finding all neighboring nodes
     neighbors = list(G.neighbors(current_location))
     
-    #Error case if node is completely isolated
+    # Error case if node is completely isolated
     if not neighbors:
         print("No neighboring locations to predict next stopover.")
         return None
 
-    #Variable initializations for comparison below
+    # Variable initializations for comparison below
     max_weight = -1
     next_location = None
 
-    #Cycling through all neighboring nodes to find strongest potential edge
+    # Cycling through all neighboring nodes to find strongest potential edge
     for neighbor in neighbors:
-        weight = G[current_location][neighbor].get('weight', 1) 
+        weight = G[current_location][neighbor].get('weight', 1)
+        
+        # If prefer_sequential is True, prioritize sequential edges
+        if prefer_sequential:
+            edge_type = G[current_location][neighbor].get('edge_type', '')
+            if edge_type == 'sequential':
+                # Give sequential edges higher preference
+                weight = weight * 2  # or some other boosting factor
+                
         if weight > max_weight:
             max_weight = weight
             next_location = neighbor
 
-    #Returning edge with greatest likelyhood
+    # Returning edge with greatest likelihood
     return next_location
 
-
-#Function to create unique color for each duck
-#Not necessary for current model as visualization is optional, will be removed
-def generate_duck_colors(ducks):
-    colors = plt.cm.rainbow(np.linspace(0, 1, len(ducks)))
-    
-    return {duck_id: colors[i] for i, duck_id in enumerate(sorted(ducks))}
-
-
-#Function to add all ducks to graph
-def graph_ducks(G, edges, duck_edge_map, duck_colors):
-    
-    #Figure initialization (empty)
-    plt.figure(figsize=(10, 7))
-
-    #Layout declaration, can adjust to test efficiency (some work better based off whether visualization is used or not)
-    pos = nx.spring_layout(G, seed = 42, k = 0.5) 
-
-    #Swapping format for 'big data' (can be expanded upon)
-    if(len(G.nodes) > 10000):
-        pos = nx.random_layout(G)
-    
-    #Adding nodes to graph
-    nx.draw_networkx_nodes(G, pos, node_size=100, node_color='skyblue')
-
-    #Adding edges between nodes (need to remove unneccesary color functionality)
-    for edge in edges:
-        duck_ids = duck_edge_map.get(edge, set())  
-        if duck_ids:
-            colors = [duck_colors[duck_id] for duck_id in duck_ids if duck_id in duck_colors]
-            avg_color = np.mean(colors, axis=0) if colors else "black"  
-        else:
-            avg_color = "black"
-
-        nx.draw_networkx_edges(G, pos, edgelist=[edge], edge_color=[avg_color], width=2)
-
-    #Printing graph to screen, not necessary for backend modeling
-    plt.title("Duck Migration Network")
-    plt.show()
-
-
-#Function to create raw edges between nodes (locations)
-def create_edges(ducks):
-
-    #Variable declarations
-    edges = []
-    edge_count = {}
-    duck_edge_map = {}
-
-    #Finding adjacent nodes by cycling through available nodes
-    for duck in ducks.values():
-        for i in range(len(duck.coord) - 1):
-            #Finding duck's next location
-            node1 = duck.coord[i]
-            node2 = duck.coord[i + 1]
-
-            #ensuring node isn't a repeated(erroneous) value
-            if node1 != node2: 
-                edge = (node1, node2)
-
-                #Updating edge count
-                edge_count[edge] = edge_count.get(edge, 0) + 1
-
-                #Store multiple duck IDs for shared edges
-                if edge in duck_edge_map:
-                    duck_edge_map[edge].add(duck.duckID)
-                else:
-                    duck_edge_map[edge] = {duck.duckID}
-
-    return list(edge_count.keys()), duck_edge_map, edge_count
 
 def get_weather(lat, lon):
 
@@ -360,28 +332,67 @@ def process_weather(weather_raw):
     weather_filtered = pd.DataFrame(relevant_data)
     return weather_filtered
 
-def compare_reduction(originalDucks, roundedDucks):
 
-    original_nodes = set()
-    for duck in originalDucks.values():
-        original_nodes.update(duck.coord)
-
-    rounded_nodes = set()
-    for duck in roundedDucks.values():
-        rounded_nodes.update(duck.coord)
-
-    original_count = len(original_nodes)
-    rounded_count = len(rounded_nodes)
-
-    if original_count > 0:
-        percent_reduction = ((original_count - rounded_count) / original_count) * 100
-    else:
-        percent_reduction = 0
-
-    print(f"Origianl Nodes: {original_count}")
-    print(f"Rounded Nodes: {rounded_count}")
-    print(f"Reduction: {percent_reduction:.2f}%")
+#Visualizing the duck migration network
+def visualize_migration_network(G, ducks, output_file="migration_network.png", highlight_duck_id=None):
+    """
+    Visualize the duck migration network with nodes colored by frequency
+    and edges colored by type (sequential vs proximity)
     
+    Args:
+        G: NetworkX graph of the migration network
+        ducks: Dictionary of Duck objects
+        output_file: Where to save the visualization
+        highlight_duck_id: Optional ID of a specific duck to highlight
+    """
+    plt.figure(figsize=(12, 10))
+    
+    # Calculate node sizes based on how many ducks visited each location
+    node_visits = {node: 0 for node in G.nodes()}
+    for duck in ducks.values():
+        for coord in duck.coord:
+            if coord in node_visits:
+                node_visits[coord] += 1
+    
+    # Node colors based on frequency (heat map)
+    node_colors = [np.log1p(node_visits[node]) for node in G.nodes()]
+    
+    # Edge colors based on type (sequential vs proximity)
+    edge_colors = []
+    for u, v, data in G.edges(data=True):
+        if data.get('edge_type') == 'sequential':
+            edge_colors.append('blue')
+        else:
+            edge_colors.append('gray')
+    
+    # Create position map based on geographic coordinates
+    pos = {node: (node[0], node[1]) for node in G.nodes()}
+    
+    # Draw the network
+    nx.draw_networkx_nodes(G, pos, node_color=node_colors, 
+                          node_size=[max(20, 5*visits) for visits in node_visits.values()],
+                          cmap=plt.cm.YlOrRd, alpha=0.7)
+    
+    nx.draw_networkx_edges(G, pos, edge_color=edge_colors, width=0.5, alpha=0.6)
+    
+    # If highlighting a specific duck, draw its path
+    if highlight_duck_id and highlight_duck_id in ducks:
+        duck = ducks[highlight_duck_id]
+        duck_path = []
+        for i in range(len(duck.coord) - 1):
+            duck_path.append((duck.coord[i], duck.coord[i+1]))
+        
+        nx.draw_networkx_edges(G, pos, edgelist=duck_path, 
+                              edge_color='red', width=2.0)
+    
+    plt.title("Duck Migration Network")
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=300)
+    plt.close()
+    print(f"Network visualization saved to {output_file}")
+
+
 if __name__ == "__main__":
 
     #Reading in data set
@@ -392,7 +403,6 @@ if __name__ == "__main__":
 
     #Creating scalable, random sample of ducks
     sampleDucks = selectDucks(total, uniqueIDs)
-
     print(f"Selected duck IDs: {sampleDucks}")
 
     #Declaration for duck storage
@@ -407,19 +417,54 @@ if __name__ == "__main__":
     #Printing original duck data (for testing purposes)
     print_duck_data(ducks, "Original Duck Data")
 
-    roundedDucks = loc_round(ducks, roundPoint=3)
-    print_duck_data(roundedDucks, "Rounded Duck Data")
-    compare_reduction(ducks, roundedDucks)
+    #Creating a proximity-based graph with preserved locations instead of rounding
+    print("\nCreating proximity-based migration network...")
+    G, duck_edge_map = create_proximity_graph(ducks, proximity_threshold=0.5, sequential_weight=5.0)
+    
+    #Print some statistics about the graph
+    print("\nGraph Statistics:")
+    print(f"Total unique nodes (locations): {G.number_of_nodes()}")
+    print(f"Total edges: {G.number_of_edges()}")
+    
+    sequential_edges = [(u, v) for u, v, d in G.edges(data=True) if d.get('edge_type') == 'sequential']
+    proximity_edges = [(u, v) for u, v, d in G.edges(data=True) if d.get('edge_type') == 'proximity']
+    print(f"Sequential edges (actual migrations): {len(sequential_edges)}")
+    print(f"Proximity edges (nearby locations): {len(proximity_edges)}")
+    
+    #Visualize the network
+    visualize_migration_network(G, ducks)
+    
+    #Test prediction on sample duck
+    test_duck = ducks[sampleDucks[0]]
+    current_location = test_duck.coord[-1]
+    print("\nPrediction Test:")
+    print(f"Duck ID: {test_duck.duckID}")
+    print(f"Current Location: {current_location}")
+    
+    next_location_seq = predict_next_location(G, current_location)
+    print(f"Predicted next location (sequential priority): {next_location_seq}")
+    
+    next_location_all = predict_next_location(G, current_location)
+    print(f"Predicted next location (all edges): {next_location_all}")
+    
+    #Optional: Generate visualization highlighting this specific duck's path
+    visualize_migration_network(G, ducks, output_file=f"duck_{test_duck.duckID}_path.png", 
+                              highlight_duck_id=test_duck.duckID)
+
+
+    #roundedDucks = loc_round(ducks, roundPoint=3)
+    #print_duck_data(roundedDucks, "Rounded Duck Data")
+    #compare_reduction(ducks, roundedDucks)
 
     #Graph initialization (empty)
-    G = nx.Graph()
+    #G = nx.Graph()
 
     #Getting and setting nodes to the map
-    nodes = create_nodes(roundedDucks)
-    G.add_nodes_from(nodes)
+    #nodes = create_nodes(roundedDucks)
+    #G.add_nodes_from(nodes)
 
     #Creating raw edges
-    edges,duck_edge_map, edge_count = create_edges(roundedDucks)
+    #edges,duck_edge_map, edge_count = create_edges(roundedDucks)
     
     #Adjustable weight for each covariance
     factor_weights = {
@@ -430,28 +475,12 @@ if __name__ == "__main__":
     }  
     
     #Adding weights to graph
-    add_edge_weights(G, edges) #edge_count, df, roundedDucks, factor_weights
-    print("Added edge weights")
-    #Assigning each duck a unique color (remove in Iteration 5)
-    duck_colors = generate_duck_colors(roundedDucks)
-
-    #graph_ducks(G, edges, duck_edge_map, duck_colors)
+    #add_edge_weights(G, edges) #edge_count, df, roundedDucks, factor_weights
+    #print("Added edge weights")
 
     #Prediction testing, validation still required
-    test_duck = roundedDucks[sampleDucks[0]]
-    current_location = test_duck.coord[-1]
-    print("Current Location: ", test_duck.duckID, " , ", current_location)
-    next_location = predict_next_location(G, current_location)
-    print("Predicted next: ", next_location)
-
-'''
-    print(" ")
-    print("*"*10)
-    print("Weather Testing")
-    #Test points
-    lat = 40.723487854003906
-    lon = -91.1420669555664
-    weather_r = get_weather(lat, lon)
-    weather_f = process_weather(weather_r)
-    print(f"Weather data: {weather_f}")   
-'''
+    #test_duck = roundedDucks[sampleDucks[0]]
+    #current_location = test_duck.coord[-1]
+    #print("Current Location: ", test_duck.duckID, " , ", current_location)
+    #next_location = predict_next_location(G, current_location)
+    #print("Predicted next: ", next_location)
