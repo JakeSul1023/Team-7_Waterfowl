@@ -257,20 +257,20 @@ def predict_next_location(G, current_location, prefer_sequential=True):
     # Finding all neighboring nodes
     neighbors = list(G.neighbors(current_location))
     
-    # Error case if node is completely isolated
+    #Checking error case if node is completely isolated
     if not neighbors:
         print("No neighboring locations to predict next stopover.")
         return None
 
-    # Variable initializations for comparison below
+    #Variable initializations for comparison below
     max_weight = -1
     next_location = None
 
-    # Cycling through all neighboring nodes to find strongest potential edge
+    #Cycling through all neighboring nodes to find strongest potential edge
     for neighbor in neighbors:
         weight = G[current_location][neighbor].get('weight', 1)
         
-        # If prefer_sequential is True, prioritize sequential edges
+        #If prefer_sequential is True, prioritize sequential edges
         if prefer_sequential:
             edge_type = G[current_location][neighbor].get('edge_type', '')
             if edge_type == 'sequential':
@@ -281,7 +281,7 @@ def predict_next_location(G, current_location, prefer_sequential=True):
             max_weight = weight
             next_location = neighbor
 
-    # Returning edge with greatest likelihood
+    #Returning edge with greatest likelihood
     return next_location
 
 
@@ -347,17 +347,17 @@ def visualize_migration_network(G, ducks, output_file="migration_network.png", h
     """
     plt.figure(figsize=(12, 10))
     
-    # Calculate node sizes based on how many ducks visited each location
+    #Calculating node sizes based on how many ducks visited each location
     node_visits = {node: 0 for node in G.nodes()}
     for duck in ducks.values():
         for coord in duck.coord:
             if coord in node_visits:
                 node_visits[coord] += 1
     
-    # Node colors based on frequency (heat map)
+    #Node colors based on frequency (heat map)
     node_colors = [np.log1p(node_visits[node]) for node in G.nodes()]
     
-    # Edge colors based on type (sequential vs proximity)
+    #Edge colors based on type (sequential vs proximity)
     edge_colors = []
     for u, v, data in G.edges(data=True):
         if data.get('edge_type') == 'sequential':
@@ -365,17 +365,17 @@ def visualize_migration_network(G, ducks, output_file="migration_network.png", h
         else:
             edge_colors.append('gray')
     
-    # Create position map based on geographic coordinates
+    #Creating position map based on geographic coordinates
     pos = {node: (node[0], node[1]) for node in G.nodes()}
     
-    # Draw the network
+    #Drawing the network
     nx.draw_networkx_nodes(G, pos, node_color=node_colors, 
                           node_size=[max(20, 5*visits) for visits in node_visits.values()],
                           cmap=plt.cm.YlOrRd, alpha=0.7)
     
     nx.draw_networkx_edges(G, pos, edge_color=edge_colors, width=0.5, alpha=0.6)
     
-    # If highlighting a specific duck, draw its path
+    #If highlighting a specific duck, draw its path
     if highlight_duck_id and highlight_duck_id in ducks:
         duck = ducks[highlight_duck_id]
         duck_path = []
