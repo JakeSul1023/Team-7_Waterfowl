@@ -26,7 +26,7 @@ import time
 OPENWEATHER_API_KEY = "02de0c63b48bcd13d425a73caa22eb81"
 
 
-# OpenWeather API integration functions
+#OpenWeather API integration functions
 def get_openweather_forecast(lat, lon, api_key=OPENWEATHER_API_KEY):
     """
     Fetch weather data from OpenWeather API for a given latitude and longitude.
@@ -175,7 +175,7 @@ class Duck():
         weather_cache = {}
         results = []
     
-        # Limit the number of locations if requested
+        #Limit the number of locations if requested
         coords = self.coord if limit is None else self.coord[:limit]
     
         for idx, (lon, lat) in enumerate(coords):
@@ -413,36 +413,122 @@ def create_proximity_graph(ducks, proximity_threshold=0.5, sequential_weight=5.0
 
 
 #Function to predict next location of duck
-def predict_next_location(G, current_location, prefer_sequential=True):
-    # Finding all neighboring nodes
+def predict_next_location(G, current_location, weather_data=None, weather_weight=0.4, 
+                         prefer_sequential=True, temperature_range=(5, 25), 
+                         favorable_wind_speed=10, favorable_pressure_range=(1000, 1020)):
+    """
+    Predict next location considering both network structure and weather conditions.
+    
+    Args:
+        G: NetworkX graph
+        current_location: Current (lon, lat) tuple
+        weather_data: Dictionary mapping locations to weather data
+        weather_weight: How much to weigh weather vs. historical patterns (0-1)
+        prefer_sequential: Whether to prioritize sequential edges
+        temperature_range: Favorable temperature range (min, max) in Celsius
+        favorable_wind_speed: Maximum favorable wind speed in m/s
+        favorable_pressure_range: Favorable barometric pressure range (min, max) in hPa
+        
+    Returns:
+        Next predicted location and prediction details
+    """
+
+    #Finding all neighboring nodes
     neighbors = list(G.neighbors(current_location))
     
     #Checking error case if node is completely isolated
     if not neighbors:
         print("No neighboring locations to predict next stopover.")
-        return None
+        return None, None
 
-    #Variable initializations for comparison below
-    max_weight = -1
+    #Variable initializations for comparison
+    max_score = -1
     next_location = None
+    prediction_details = {}
 
-    #Cycling through all neighboring nodes to find strongest potential edge
+    #Cycling through all neighboring nodes to find best option
     for neighbor in neighbors:
-        weight = G[current_location][neighbor].get('weight', 1)
+        #Getting the base edge weight from the graph
+        edge_weight = G[current_location][neighbor].get('weight', 1)
         
         #If prefer_sequential is True, prioritize sequential edges
         if prefer_sequential:
             edge_type = G[current_location][neighbor].get('edge_type', '')
             if edge_type == 'sequential':
                 # Give sequential edges higher preference
-                weight = weight * 2  # or some other boosting factor
-                
-        if weight > max_weight:
-            max_weight = weight
+                edge_weight = edge_weight * 2  # or some other boosting factor
+        
+        #Initializing composite score with historical weight
+        historical_score = edge_weight
+        weather_score = 1.0  # Default if no weather data
+        
+        #Calculating weather favorability if data is available
+        weather_factors = {}
+        if weather_data and neighbor in weather_data:
+            neighbor_weather = weather_data[neighbor]
+            
+            #Temperature favorability (1.0 if in ideal range, decreasing as we move outside range)
+            temp = neighbor_weather.get('temperature')
+            if temp is not None:
+                if temperature_range[0] <= temp <= temperature_range[1]:
+                    temp_score = 1.0
+                else:
+                    #Decreasing score based on distance from range
+                    dist_from_range = min(abs(temp - temperature_range[0]), 
+                                         abs(temp - temperature_range[1]))
+                    temp_score = max(0.1, 1.0 - (dist_from_range / 10))
+                weather_factors['temperature'] = temp_score
+            else:
+                temp_score = 0.5  # Neutral if no temperature data
+                weather_factors['temperature'] = temp_score
+            
+            #Setting wind speed favorability (where lower wind speed is better for flying)
+            wind = neighbor_weather.get('wind_speed')
+            if wind is not None:
+                wind_score = max(0.1, 1.0 - (wind / favorable_wind_speed))
+                weather_factors['wind'] = wind_score
+            else:
+                wind_score = 0.5  #Setting neutral if no wind data
+                weather_factors['wind'] = wind_score
+            
+            #Pressure favorability
+            pressure = neighbor_weather.get('pressure')
+            if pressure is not None:
+                if favorable_pressure_range[0] <= pressure <= favorable_pressure_range[1]:
+                    pressure_score = 1.0
+                else:
+                    #Decreasing score based on distance from range
+                    dist_from_range = min(abs(pressure - favorable_pressure_range[0]), 
+                                         abs(pressure - favorable_pressure_range[1]))
+                    pressure_score = max(0.1, 1.0 - (dist_from_range / 50))
+                weather_factors['pressure'] = pressure_score
+            else:
+                pressure_score = 0.5  #Setting to neutral if no pressure data
+                weather_factors['pressure'] = pressure_score
+            
+            #Combining weather factors
+            weather_score = (temp_score + wind_score + pressure_score) / 3
+        
+        #Calculating final composite score
+        #Note: historical_weight + weather_weight should equal 1
+        historical_weight = 1 - weather_weight
+        composite_score = (historical_weight * historical_score) + (weather_weight * weather_score)
+        
+        #Updating if this is the best score so far
+        if composite_score > max_score:
+            max_score = composite_score
             next_location = neighbor
+            prediction_details = {
+                'location': neighbor,
+                'historical_score': historical_score,
+                'weather_score': weather_score,
+                'weather_factors': weather_factors,
+                'composite_score': composite_score,
+                'weather_data': weather_data.get(neighbor) if weather_data else None
+            }
 
-    #Returning edge with greatest likelihood
-    return next_location
+    #Returning edge with greatest likelihood and prediction details
+    return next_location, prediction_details
 
 
 #Visualizing the duck migration network
@@ -505,6 +591,38 @@ def visualize_migration_network(G, ducks, output_file="migration_network.png", h
     print(f"Network visualization saved to {output_file}")
 
 
+def get_weather_for_prediction(G, current_location):
+    """
+    Fetch weather data for all potential next locations.
+    
+    Args:
+        G: NetworkX graph
+        current_location: Current (lon, lat) tuple
+        
+    Returns:
+        Dictionary mapping locations to their weather data
+    """
+    #Getting all neighboring nodes
+    neighbors = list(G.neighbors(current_location))
+    
+    #Formatting for API call
+    weather_locations = [(node[1], node[0]) for node in neighbors]  # Convert (lon, lat) to (lat, lon)
+    
+    #Fetching weather data
+    print(f"Fetching weather data for {len(weather_locations)} potential next locations...")
+    weather_data_list = fetch_openweather_forecast_for_points(weather_locations)
+    
+    #Converting to dictionary for easy lookup
+    weather_dict = {}
+    for weather in weather_data_list:
+        if weather:
+            #Converting back to (lon, lat) format to match graph node keys
+            location = (weather['longitude'], weather['latitude'])
+            weather_dict[location] = weather
+    
+    return weather_dict
+
+
 if __name__ == "__main__":
 
     #Reading in data set
@@ -527,20 +645,20 @@ if __name__ == "__main__":
         ducks[duck_id] = duck
 
     print("Fetching weather data for sample ducks...")
-    # Fetch weather for each duck's locations (limiting to most recent 3 locations to avoid API rate limits)
+    #Fetching weather for each duck's locations (limiting to most recent 3 locations to avoid API rate limits)
     all_weather_data = []
     for duck_id, duck in ducks.items():
         print(f"Processing Duck {duck_id}...")
-        duck_weather = duck.fetch_weather_data() #use this to limit amount of times the location is used
+        duck_weather = duck.fetch_weather_data() #limits number of times location is used
         all_weather_data.extend(duck_weather)
-        # Create a DataFrame of the duck's weather data
+        #Creating a DataFrame of the duck's weather data
         weather_df = duck.get_weather_dataframe()
         print(f"Weather data for Duck {duck_id}:")
         if not weather_df.empty:
             print(weather_df[['latitude', 'longitude', 'temperature', 'pressure', 'wind_speed']]) #add heading if necessary
         print()
     
-    # Process all collected weather data into a single DataFrame
+    #Processing all collected weather data into a single DataFrame
     combined_weather_df = process_weather_data(all_weather_data)
     if not combined_weather_df.empty:
         print("\nCombined Weather Data Summary:")
@@ -574,10 +692,10 @@ if __name__ == "__main__":
     print(f"Duck ID: {test_duck.duckID}")
     print(f"Current Location: {current_location}")
     
-    next_location_seq = predict_next_location(G, current_location)
+    next_location_seq, prediction_details_seq = predict_next_location(G, current_location)
     print(f"Predicted next location (sequential priority): {next_location_seq}")
-    
-    next_location_all = predict_next_location(G, current_location)
+
+    next_location_all, prediction_details_all = predict_next_location(G, current_location, prefer_sequential=False)
     print(f"Predicted next location (all edges): {next_location_all}")
     
     #Optional: Generate visualization highlighting this specific duck's path
@@ -593,25 +711,60 @@ if __name__ == "__main__":
         'temperature': 0.3
     }  
 
-    #Prediction testing
-    print("\nPrediction Testing:")
+    print("\nWeather-Enhanced Prediction Testing:")
+    
+    #Defining weather preference parameters
+    weather_weight = 0.4  #40% weather, 60% historical patterns
+    temperature_range = (5, 25)  #Favorable temperature range in Celsius
+    favorable_wind_speed = 10  #Max favorable wind speed in m/s
+    favorable_pressure_range = (1000, 1020)  #Favorable pressure range in hPa
+    
     for i, duck_id in enumerate(list(ducks.keys())[:3]):  # Test the first 3 ducks
         test_duck = ducks[duck_id]
         current_location = test_duck.coord[-1]
-        print(f"Duck {duck_id} Current Location: {current_location}")
-        next_location = predict_next_location(G, current_location)
-        print(f"Duck {duck_id} Predicted Next Location: {next_location}")
         
-        if next_location:
-            # Get weather at predicted next location
-            next_weather = get_openweather_forecast(next_location[1], next_location[0])
-            if next_weather:
-                print(f"Predicted location weather: {next_weather['temperature']}°C, {next_weather['weather_description']}")
-        print()
-
-    #Prediction testing, validation still required
-    #test_duck = roundedDucks[sampleDucks[0]]
-    #current_location = test_duck.coord[-1]
-    #print("Current Location: ", test_duck.duckID, " , ", current_location)
-    #next_location = predict_next_location(G, current_location)
-    #print("Predicted next: ", next_location)
+        print(f"\nDuck {duck_id} Current Location: {current_location}")
+        
+        #Getting weather for all potential next locations
+        potential_weather = get_weather_for_prediction(G, current_location)
+        
+        #Making historical-only prediction for comparison
+        historical_next_location, _ = predict_next_location(G, current_location, 
+                                                        weather_data=None, 
+                                                        weather_weight=0)
+        
+        #Making weather-enhanced prediction
+        weather_next_location, prediction_details = predict_next_location(G, current_location,
+                                                                 weather_data=potential_weather,
+                                                                 weather_weight=weather_weight,
+                                                                 temperature_range=temperature_range,
+                                                                 favorable_wind_speed=favorable_wind_speed,
+                                                                 favorable_pressure_range=favorable_pressure_range)
+        
+        print(f"Historical-only prediction: {historical_next_location}")
+        print(f"Weather-enhanced prediction: {weather_next_location}")
+        
+        #Printing prediction details
+        if prediction_details:
+            print("\nPrediction Details:")
+            print(f"  Historical factor: {prediction_details['historical_score']:.3f}")
+            print(f"  Weather factor: {prediction_details['weather_score']:.3f}")
+            print(f"  Final score: {prediction_details['composite_score']:.3f}")
+            
+            if prediction_details['weather_data']:
+                weather = prediction_details['weather_data']
+                print(f"\nWeather at predicted location:")
+                print(f"  Temperature: {weather.get('temperature')}°C")
+                print(f"  Wind Speed: {weather.get('wind_speed')} m/s")
+                print(f"  Pressure: {weather.get('pressure')} hPa")
+                print(f"  Description: {weather.get('weather_description')}")
+            
+            if 'weather_factors' in prediction_details:
+                print("\nWeather factor scores (1.0 = ideal):")
+                for factor, score in prediction_details['weather_factors'].items():
+                    print(f"  {factor}: {score:.3f}")
+        
+        #Visualizing this duck's path with prediction
+        if historical_next_location != weather_next_location:
+            print(f"\n** Weather conditions changed prediction for Duck {duck_id} **")
+   
