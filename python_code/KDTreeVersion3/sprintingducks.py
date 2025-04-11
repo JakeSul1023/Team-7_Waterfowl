@@ -1,11 +1,11 @@
-from updatedagain import *  # Assuming the required functions are inside this module
+from updatedagain import *
 import pandas as pd
 from datetime import datetime, timedelta
 import numpy as np
 import os
 
-# Set API token - ensure this is correct
-TOKEN = "02de0c63b48bcd13d425a73caa22eb81"  # OpenWeather API token
+# Set API token - consider using environment variables for sensitive tokens
+TOKEN = "02de0c63b48bcd13d425a73caa22eb81"
 DATA_PATH = "ShortTermSetData(Aug-Sept).csv"
 
 def main():
@@ -38,97 +38,38 @@ def main():
         start_date = min(all_timestamps)
         end_date = max(all_timestamps)
     
-    # Sample points for testing
+    # Sample coordinates for testing
     lat = 39.0
     lon = -90.0
-    
+
     # Step 4: Fetch OpenWeather forecast for a sample point
     try:
         print(f"Fetching OpenWeather forecast for point ({lat}, {lon})...")
-        forecast_json = get_openweather_forecast(lat, lon, api_key=TOKEN)
-        
-        # Check if the forecast was retrieved successfully
-        if forecast_json:
-            print(f"Total forecast periods fetched: {len(forecast_json['forecast'])}")
-        else:
-            print("No forecast data retrieved.")
-        
+        forecast_json = fetch_weather_forecast_for_point(lat, lon, TOKEN)  # Updated call to OpenWeather
+        print("Successfully fetched OpenWeather forecast")
     except Exception as e:
         print(f"Error fetching OpenWeather forecast: {e}")
         forecast_json = None
 
-    # Continue with the rest of your logic...
-
-    
-    # Step 5: Get weather stations
+    # Step 5: Fetch weather data for multiple points using fetch_multiple_openweather_data
     try:
-        print("Fetching weather stations...")
-        stations_instance = Stations()
-        stations_data = stations_instance.fetch()
-
-        # Filter stations to ensure they have required fields
-        valid_stations = []
-        for station in stations_data.itertuples():
-            # Convert to dictionary
-            station_dict = {
-                'id': getattr(station, 'id', f"station_{len(valid_stations)}"),  # Set default 'id' if missing
-                'name': getattr(station, 'name', 'Unknown'),
-                'latitude': getattr(station, 'latitude', None),
-                'longitude': getattr(station, 'longitude', None),
-                'elevation': getattr(station, 'elevation', 0)
-            }
-
-            # Only include stations with valid coordinates
-            if station_dict['latitude'] is not None and station_dict['longitude'] is not None:
-                valid_stations.append(station_dict)
-
-        print(f"Found {len(valid_stations)} valid weather stations")
-    except Exception as e:
-        print(f"Error fetching stations: {e}")
-        # Create dummy stations for testing
-        valid_stations = [
-            {'id': 'test1', 'name': 'Test Station 1', 'latitude': flyway_bbox[1] + 1, 'longitude': flyway_bbox[0] + 1, 'elevation': 0},
-            {'id': 'test2', 'name': 'Test Station 2', 'latitude': flyway_bbox[1] - 1, 'longitude': flyway_bbox[0] - 1, 'elevation': 0}
-        ]
-
-    # Step 6: Build KD-tree for stations
-    try:
-        print("Building KD-tree for stations...")
-        station_tree, station_coords = build_kdtree_for_stations(valid_stations)
-        print("KD-tree built successfully")
-    except Exception as e:
-        print(f"Error building KD-tree: {e}")
-        return
-    
-    # Step 7: Find nearest stations to a sample point
-    try:
-        nearest_stations = find_nearest_stations(lat, lon, station_tree, valid_stations, k=3)
-        print(f"Found {len(nearest_stations)} nearest stations to point ({lat}, {lon})")
-    except Exception as e:
-        print(f"Error finding nearest stations: {e}")
-    
-    # Step 8: Fetch historical weather data (limit to 50 stations)
-    try:
-        print(f"Fetching weather data from {start_date} to {end_date}...")
-        weather_data = fetch_weather_data(valid_stations[:50], start_date, end_date)  # Fetch weather data
-        if weather_data.empty:
-            print("Warning: No weather data returned")
+        print("Fetching weather data for multiple points...")
+        weather_data = fetch_multiple_openweather_data(flyway_bbox, TOKEN)  # Fetch data for multiple locations
+        if weather_data and isinstance(weather_data, list):
+            print(f"Successfully fetched weather data for {len(weather_data)} locations.")
+        else:
+            print("Warning: No weather data returned or invalid format.")
+            weather_data = []
     except Exception as e:
         print(f"Error fetching weather data: {e}")
-        weather_data = pd.DataFrame(columns=['temp', 'rhum', 'prcp', 'wspd', 'wdir', 'pres', 'station_id', 'latitude', 'longitude'])
-    
-    # Step 9: Fetch weather forecast (limited resolution to reduce API load)
-    try:
-        print("Fetching weather forecast...")
-        future_dates = [datetime.now() + timedelta(days=i) for i in range(1, 3)]  # 2 days
-        forecast_data = fetch_weather_forecast_robust(flyway_bbox, resolution=3.0, forecast_dates=future_dates, api_key=TOKEN)
-        if forecast_data.empty:
-            print("Warning: No forecast data returned")
-    except Exception as e:
-        print(f"Error fetching weather forecast: {e}")
-        forecast_data = pd.DataFrame()
-    
-    # Step 10: Example calculations between two points
+        weather_data = []
+
+    # Check if weather_data is valid and contains the required keys
+    if not weather_data or not isinstance(weather_data, list):
+        print("No valid weather data available, cannot proceed with feature engineering.")
+        return
+
+    # Step 6: Perform geographical calculations (distance and bearing) - Optional
     point1_lat, point1_lon = 40.0, -90.0  # Near St. Louis, MO
     point2_lat, point2_lon = 42.0, -88.0  # Near Chicago, IL
     
@@ -142,9 +83,9 @@ def main():
     except Exception as e:
         print(f"Error in geographical calculations: {e}")
     
-    # Step 11: Create weather rasters if we have data
+    # Step 7: Create weather rasters if we have data
     weather_rasters = {}
-    if not weather_data.empty:
+    if weather_data:
         try:
             print("\nCreating weather raster timeseries...")
             weather_rasters = create_weather_raster_timeseries(weather_data, duck_trajectories, flyway_bbox, resolution=0.5)
@@ -153,15 +94,15 @@ def main():
             print(f"Error creating weather rasters: {e}")
     else:
         print("Skipping weather raster creation due to missing weather data")
-    
-    # Step 12: Extract weather at points if we have rasters
+        
+    # Step 8: Extract weather at points if we have rasters
     if weather_rasters:
         try:
             print("\nExtracting weather at sample points...")
             sample_time = start_date + timedelta(days=1)  # A time within our data range
             point_weather = extract_weather_at_point(weather_rasters, sample_time, lat, lon)
             print(f"Weather at point ({lat}, {lon}): {point_weather}")
-            
+
             weather_gradients = calculate_weather_gradient(
                 weather_rasters, sample_time, point1_lat, point1_lon, point2_lat, point2_lon, distance=50
             )
@@ -170,12 +111,12 @@ def main():
             print(f"Error extracting point weather data: {e}")
     else:
         print("Skipping weather extraction due to missing weather rasters")
-    
-    # Step 13: Engineer features if we have all required data
-    if weather_rasters and duck_trajectories and valid_stations and station_tree:
+
+    # Step 9: Engineer features if we have all required data
+    if weather_rasters and duck_trajectories:
         try:
             print("\nEngineering features for machine learning...")
-            engineered_features = engineer_features(duck_trajectories, weather_rasters, station_tree, valid_stations)
+            engineered_features = engineer_features(duck_trajectories, weather_rasters, None, None)
             print(f"Created {len(engineered_features)} feature rows")
             
             # Proceed with model preparation if we have sufficient data
