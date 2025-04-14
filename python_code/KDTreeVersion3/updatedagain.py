@@ -49,10 +49,9 @@ def load_duck_data(filepath="ShortTermSetData(Aug-Sept).csv"):
         print(f"Error: Unable to parse {filepath}. Please check the file format.")
         return None, None
 
-    # Display column names to verify data structure
     print(f"Columns in the dataset: {duck_df.columns.tolist()}")
 
-    # Drop irrelevant columns and verify if they exist
+    # Drop irrelevant columns
     columns_to_drop = [
         "battery-charge-percent", "battery-charging-current", "gps-time-to-fix",
         "orn:transmission-protocol", "tag-voltage", "sensor-type", "acceleration-raw-x",
@@ -70,46 +69,42 @@ def load_duck_data(filepath="ShortTermSetData(Aug-Sept).csv"):
         drop_message = "Unnecessary columns have been dropped:\n" + str(dropped_columns)
     else:
         drop_message = "No unnecessary columns found to drop."
-
     print(drop_message)
-    
+
     # Convert timestamp to datetime
-    try:
-        timestamp_converted = False
-        original_timestamps = duck_df['timestamp'].copy()
-        date_formats = [
-            '%m/%d/%Y %I:%M:%S %p',
-            '%m/%d/%Y %H:%M:%S',
-            '%Y-%m-%d %H:%M:%S',
-            '%m/%d/%Y %H:%M',
-            '%H:%M:%S',
-            '%M:%S.%f',
-            '%Y-%m-%dT%H:%M:%S.%fZ',
-            '%Y-%m-%dT%H:%M:%SZ'
-        ]
-        
-        for date_format in date_formats:
-            try:
-                converted = pd.to_datetime(original_timestamps, format=date_format, errors='coerce')
-                if converted.isna().sum() < len(converted) * 0.5:
-                    duck_df['timestamp'] = converted
-                    timestamp_converted = True
-                    break
-            except Exception as e:
-                continue
+    timestamp_converted = False
+    original_timestamps = duck_df['timestamp'].copy()
+    date_formats = [
+        '%m/%d/%Y %I:%M:%S %p',
+        '%m/%d/%Y %H:%M:%S',
+        '%Y-%m-%d %H:%M:%S',
+        '%m/%d/%Y %H:%M',
+        '%H:%M:%S',
+        '%M:%S.%f',
+        '%Y-%m-%dT%H:%M:%S.%fZ',
+        '%Y-%m-%dT%H:%M:%SZ'
+    ]
 
-        if not timestamp_converted:
-            try:
-                converted = pd.to_datetime(original_timestamps, errors='coerce', infer_datetime_format=True)
-                if converted.isna().sum() < len(converted) * 0.5:
-                    duck_df['timestamp'] = converted
-                    timestamp_converted = True
-            except Exception as e:
-                pass
+    for date_format in date_formats:
+        try:
+            converted = pd.to_datetime(original_timestamps, format=date_format, errors='coerce')
+            if converted.isna().sum() < len(converted) * 0.5:
+                duck_df['timestamp'] = converted
+                timestamp_converted = True
+                break
+        except Exception as e:
+            continue
 
-        if not timestamp_converted or duck_df['timestamp'].isna().sum() > len(duck_df) * 0.9:
-            duck_df['timestamp'] = pd.date_range(start='2024-01-01', periods=len(duck_df), freq='1min')
-    except Exception as e:
+    if not timestamp_converted:
+        try:
+            converted = pd.to_datetime(original_timestamps, errors='coerce', infer_datetime_format=True)
+            if converted.isna().sum() < len(converted) * 0.5:
+                duck_df['timestamp'] = converted
+                timestamp_converted = True
+        except Exception as e:
+            pass
+
+    if not timestamp_converted or duck_df['timestamp'].isna().sum() > len(duck_df) * 0.9:
         duck_df['timestamp'] = pd.date_range(start='2024-01-01', periods=len(duck_df), freq='1min')
 
     # Standardize column names
@@ -126,7 +121,6 @@ def load_duck_data(filepath="ShortTermSetData(Aug-Sept).csv"):
     if existing_columns:
         duck_df = duck_df.rename(columns=existing_columns)
 
-    # Add any missing essential columns with default values
     essential_columns = ['longitude', 'latitude', 'timestamp', 'individual-local-identifier']
     for col in essential_columns:
         if col not in duck_df.columns:
@@ -135,11 +129,10 @@ def load_duck_data(filepath="ShortTermSetData(Aug-Sept).csv"):
     # Create GeoDataFrame for spatial operations
     geometry = [ShapelyPoint(xy) for xy in zip(duck_df['longitude'], duck_df['latitude'])]
     duck_gdf = gpd.GeoDataFrame(duck_df, geometry=geometry, crs="EPSG:4326")
-    
-    duck_trajectories = {id: group for id, group in duck_gdf.groupby('individual-local-identifier')}
-    
-    return duck_trajectories, duck_gdf
 
+    duck_trajectories = {id: group for id, group in duck_gdf.groupby('individual-local-identifier')}
+
+    return duck_trajectories, duck_gdf
 
 def get_flyway_region():
     """Define the Mississippi Flyway region"""
@@ -149,27 +142,15 @@ def get_flyway_region():
 
 def get_all_timestamps(duck_trajectories):
     """Extract all unique timestamps from duck trajectories"""
-    if not duck_trajectories:
-        print("No duck trajectories available")
-        return []
-        
     all_times = []
     for duck_id, trajectory in duck_trajectories.items():
         if 'timestamp' in trajectory.columns:
             all_times.extend(trajectory['timestamp'].tolist())
     
-    # Filter out NaT values
     all_times = [t for t in all_times if pd.notna(t)]
-    
-    # Sort and remove duplicates
     unique_times = sorted(set(all_times))
     
-    print("\n=== Timestamp Analysis ===")
     print(f"Total unique timestamps: {len(unique_times)}")
-    if unique_times:
-        print(f"Date range: {unique_times[0]} to {unique_times[-1]}")
-    print(f"================")
-    
     return unique_times
 
 
@@ -180,13 +161,10 @@ def get_all_timestamps(duck_trajectories):
 def fetch_openweather_data(lat, lon, api_key="02de0c63b48bcd13d425a73caa22eb81"):
     """Fetch weather data from OpenWeather API for a given lat, lon"""
     url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
-    
     try:
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
-        
-        # Extract relevant weather data and add latitude and longitude to the data
         weather = {
             "temperature": data['main']['temp'],
             "humidity": data['main']['humidity'],
@@ -197,9 +175,7 @@ def fetch_openweather_data(lat, lon, api_key="02de0c63b48bcd13d425a73caa22eb81")
             "latitude": lat,  
             "longitude": lon  
         }
-        
         return weather
-    
     except requests.exceptions.RequestException as e:
         print(f"Error fetching weather data: {e}")
         return None
@@ -470,7 +446,6 @@ def prepare_lstm_sequences(features_df, sequence_length=24, target_cols=['next_l
         print("Features DataFrame is empty, cannot prepare sequences")
         return np.array([]), np.array([]), []
 
-    # Group by duck_id
     grouped = features_df.groupby('duck_id')
     X_sequences = []
     y_targets = []
@@ -478,29 +453,21 @@ def prepare_lstm_sequences(features_df, sequence_length=24, target_cols=['next_l
 
     feature_cols = [col for col in features_df.columns 
                    if col not in target_cols + ['duck_id', 'timestamp', 'next_lat', 'next_lon']]
-    
-    print(f"\n=== Preparing LSTM Sequences ===")
-    print(f"Using sequence length: {sequence_length}")
-    
-    # For each duck's trajectory
+
     for duck_id, group in grouped:
         group = group.sort_values('timestamp')
 
-        # Handle non-numeric and missing data in the features
         for col in feature_cols:
             group[col] = pd.to_numeric(group[col], errors='coerce')
 
-        # Fill missing values
         group_filled = group[feature_cols].fillna(method='ffill').fillna(0)
 
         if len(group_filled) >= sequence_length + 1:
-            # Normalize features
             scaler = MinMaxScaler(feature_range=(-1, 1))
             scaler.fit(group_filled)
             group_normalized = group.copy()
             group_normalized[feature_cols] = scaler.transform(group_filled)
 
-            # Create sequences
             for i in range(len(group_normalized) - sequence_length):
                 seq_df = group_normalized.iloc[i:i + sequence_length]
                 target_df = group_normalized.iloc[i + sequence_length]
@@ -527,14 +494,12 @@ def prepare_lstm_sequences(features_df, sequence_length=24, target_cols=['next_l
     X = np.array(X_sequences, dtype=np.float32)
     y = np.array(y_targets, dtype=np.float32)
 
-    print(f"Created {len(X)} sequences")
     return X, y, metadata
 
 def build_lstm_model(input_shape, output_dim=2):
     """Build and compile an LSTM model for duck migration prediction with additional features"""
     model = Sequential()
     
-    # LSTM layers with dropout for regularization
     model.add(LSTM(128, return_sequences=True, input_shape=input_shape))
     model.add(Dropout(0.2))
     model.add(LSTM(64, return_sequences=True))
@@ -542,17 +507,15 @@ def build_lstm_model(input_shape, output_dim=2):
     model.add(LSTM(32))
     model.add(Dropout(0.2))
     
-    # Dense output layers with batch normalization
     model.add(Dense(32, activation='relu'))
     model.add(BatchNormalization())
     model.add(Dense(16, activation='relu'))
     model.add(Dense(output_dim, activation='linear'))  # Linear activation for regression
     
-    # Compile the model with advanced metrics
     model.compile(
-        optimizer='adam', 
-        loss='mse', 
-        metrics=['mae', 'mape']  # Add mean absolute percentage error 
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+        loss='mse',
+        metrics=['mae', 'mape']  # Add more metrics if needed
     )
     
     print("\n=== Enhanced LSTM Model Built ===")
@@ -562,46 +525,22 @@ def build_lstm_model(input_shape, output_dim=2):
 
 def train_lstm_model(X_train, y_train, X_val, y_val, epochs=100, batch_size=32):
     """Train the LSTM model with early stopping and learning rate scheduling"""
-    # Define model input shape
     input_shape = (X_train.shape[1], X_train.shape[2])
     output_dim = y_train.shape[1]
-    
-    # Ensure data is float32 for TensorFlow
+
     X_train = X_train.astype(np.float32)
     y_train = y_train.astype(np.float32)
     X_val = X_val.astype(np.float32)
     y_val = y_val.astype(np.float32)
-    
-    print(f"X_train dtype: {X_train.dtype}, y_train dtype: {y_train.dtype}")
-    print(f"X_val dtype: {X_val.dtype}, y_val dtype: {y_val.dtype}")
-    
-    # Build the model
+
     model = build_lstm_model(input_shape, output_dim)
-    
-    # Define callbacks
+
     callbacks = [
-        EarlyStopping(
-            monitor='val_loss', 
-            patience=15, 
-            restore_best_weights=True,
-            verbose=1
-        ),
-        ModelCheckpoint(
-            'best_duck_model.h5', 
-            save_best_only=True, 
-            monitor='val_loss',
-            verbose=1
-        ),
-        ReduceLROnPlateau(
-            monitor='val_loss',
-            factor=0.5,
-            patience=5,
-            verbose=1,
-            min_lr=0.0001
-        )
+        EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True),
+        ModelCheckpoint('best_duck_model.h5', save_best_only=True, monitor='val_loss'),
+        ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5)
     ]
-    
-    # Train the model with error handling
+
     try:
         history = model.fit(
             X_train, y_train,
@@ -614,50 +553,11 @@ def train_lstm_model(X_train, y_train, X_val, y_val, epochs=100, batch_size=32):
         
         print("\n=== Model Training Complete ===")
         print(f"Final validation loss: {history.history['val_loss'][-1]:.4f}")
-        print(f"Final validation MAE: {history.history['val_mae'][-1]:.4f}")
-        
-        # Plot training history
-        plt.figure(figsize=(12, 5))
-        
-        plt.subplot(1, 2, 1)
-        plt.plot(history.history['loss'], label='Training Loss')
-        plt.plot(history.history['val_loss'], label='Validation Loss')
-        plt.title('Loss Over Time')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.legend()
-        
-        plt.subplot(1, 2, 2)
-        plt.plot(history.history['mae'], label='Training MAE')
-        plt.plot(history.history['val_mae'], label='Validation MAE')
-        plt.title('Mean Absolute Error Over Time')
-        plt.xlabel('Epoch')
-        plt.ylabel('MAE')
-        plt.legend()
-        
-        plt.tight_layout()
-        plt.savefig('duck_model_training_history.png')
-        plt.close()
         
         return model, history
-    
     except Exception as e:
         print(f"Error during model training: {e}")
-        print("Detailed error information:")
-        import traceback
-        traceback.print_exc()
-        
-        # Return a simple model that can at least make predictions
-        print("Creating fallback model...")
-        simple_model = Sequential()
-        simple_model.add(LSTM(32, input_shape=input_shape))
-        simple_model.add(Dense(output_dim))
-        simple_model.compile(optimizer='adam', loss='mse')
-        
-        # Create mock history
-        history = {'loss': [0], 'val_loss': [0], 'mae': [0], 'val_mae': [0]}
-        
-        return simple_model, history
+        return None, None
 
 def predict_duck_migration(model, X_test, metadata_test):
     """Make predictions on test data and visualize results"""
@@ -861,17 +761,14 @@ def visualize_predictions(pred_df):
     if pred_df.empty:
         print("No predictions to visualize")
         return
-    
-    # Sample a subset for visualization if too many
+
     if len(pred_df) > 50:
         viz_df = pred_df.sample(50, random_state=42)
     else:
         viz_df = pred_df
-    
-    # Create a map of actual vs predicted locations
+
     plt.figure(figsize=(12, 10))
-    
-    # Plot actual locations
+
     plt.scatter(
         viz_df['last_lon'], 
         viz_df['last_lat'], 
@@ -879,8 +776,7 @@ def visualize_predictions(pred_df):
         label='Actual Location',
         alpha=0.7
     )
-    
-    # Plot predicted locations
+
     plt.scatter(
         viz_df['pred_lon'], 
         viz_df['pred_lat'], 
@@ -888,8 +784,7 @@ def visualize_predictions(pred_df):
         label='Predicted Location',
         alpha=0.7
     )
-    
-    # Connect actual and predicted with lines
+
     for _, row in viz_df.iterrows():
         plt.plot(
             [row['last_lon'], row['pred_lon']], 
@@ -897,7 +792,7 @@ def visualize_predictions(pred_df):
             'k-', 
             alpha=0.3
         )
-    
+
     plt.title('Duck Migration: Actual vs Predicted Locations')
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
@@ -905,15 +800,14 @@ def visualize_predictions(pred_df):
     plt.grid(True)
     plt.savefig('duck_prediction_map.png')
     plt.close()
-    
-    # Add error histogram
+
     plt.figure(figsize=(10, 6))
     plt.hist(pred_df['distance_error_km'], bins=20, alpha=0.7)
     plt.axvline(pred_df['distance_error_km'].mean(), color='r', linestyle='--', 
                 label=f'Mean: {pred_df["distance_error_km"].mean():.2f} km')
     plt.axvline(pred_df['distance_error_km'].median(), color='g', linestyle='--', 
                 label=f'Median: {pred_df["distance_error_km"].median():.2f} km')
-    
+
     plt.title('Prediction Error Distribution')
     plt.xlabel('Error Distance (km)')
     plt.ylabel('Frequency')
@@ -921,7 +815,7 @@ def visualize_predictions(pred_df):
     plt.grid(True)
     plt.savefig('duck_prediction_error_distribution.png')
     plt.close()
-    
+
     print("\n=== Prediction Visualizations Created ===")
     print("Saved visualizations to disk")
 
