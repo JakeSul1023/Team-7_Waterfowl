@@ -6,7 +6,7 @@ print("Loading actual and predicted duck migration data...")
 
 # Load CSVs
 actual_df = pd.read_csv("Mallard Connectivity(2).csv")
-predicted_df = pd.read_csv("duck_migration_extended_forecasts-3 1.csv")
+predicted_df = pd.read_csv("duck_migration_extended_forecasts_14.csv")
 
 print("Cleaning and standardizing column names...")
 
