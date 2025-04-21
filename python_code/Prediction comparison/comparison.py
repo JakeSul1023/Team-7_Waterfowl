@@ -1,9 +1,12 @@
 import pandas as pd
 from geopy.distance import geodesic
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
 
 # Load datasets
-gnn_df = pd.read_csv("GNN_predictions_OneMonth.csv")
-actual_df = pd.read_csv("Mallard Connectivity(2).csv")
+gnn_df = pd.read_csv("M30_A06_P.csv")
+actual_df = pd.read_csv("SpringTest.csv")
 
 # Standardize ID formats and timestamp parsing
 gnn_df['duck_id'] = gnn_df['duck_id'].astype(str).str.strip()
@@ -55,12 +58,70 @@ comparison_df = pd.DataFrame(results)
 # Summary metrics
 average_error = comparison_df['distance_error_km'].mean()
 within_10km = (comparison_df['distance_error_km'] <= 10).mean() * 100
+max_error = comparison_df['distance_error_km'].max()
+min_error = comparison_df['distance_error_km'].min()
+std_error = comparison_df['distance_error_km'].std()
 
 # Save results to CSV
 comparison_df.to_csv("gnn_vs_actual_duck_comparison.csv", index=False)
 
 # Print summary
-print("--- GNN vs Actual Comparison Summary ---")
+print("\n--- GNN vs Actual Comparison Summary ---")
 print(f"Total comparisons made: {len(comparison_df)}")
 print(f"Average distance error: {average_error:.2f} km")
+print(f"Max error: {max_error:.2f} km")
+print(f"Min error: {min_error:.2f} km")
+print(f"Standard deviation: {std_error:.2f} km")
 print(f"Percentage within 10 km: {within_10km:.2f}%")
+
+# Plot histogram of distance errors
+plt.figure(figsize=(10, 6))
+sns.histplot(comparison_df['distance_error_km'], bins=50, kde=True)
+plt.title("Distribution of Prediction Errors (km)")
+plt.xlabel("Distance Error (km)")
+plt.ylabel("Frequency")
+plt.grid(True)
+plt.tight_layout()
+plt.savefig("error_distribution_histogram.png")
+plt.show()
+
+# Boxplot for error spread
+plt.figure(figsize=(8, 4))
+sns.boxplot(x=comparison_df['distance_error_km'])
+plt.title("Boxplot of Prediction Errors (km)")
+plt.xlabel("Distance Error (km)")
+plt.tight_layout()
+plt.savefig("error_boxplot.png")
+plt.show()
+
+# Bar chart: frequency vs binned error ranges
+bin_edges = [0, 10, 25, 50, 100, 250, 500, 1000]
+bin_labels = ["0-10", "10-25", "25-50", "50-100", "100-250", "250-500", "500+"]
+
+# Assign each distance error to a bin
+comparison_df['error_bin'] = pd.cut(
+    comparison_df['distance_error_km'],
+    bins=[0, 10, 25, 50, 100, 250, 500, float("inf")],
+    labels=bin_labels,
+    include_lowest=True
+)
+
+# Count frequencies per bin
+bin_counts = comparison_df['error_bin'].value_counts().sort_index()
+
+# Plot bar chart
+plt.figure(figsize=(10, 6))
+sns.barplot(x=bin_counts.index, y=bin_counts.values)
+plt.title("Frequency of Distance Errors by Bin")
+plt.xlabel("Distance Error Bin (km)")
+plt.ylabel("Frequency")
+plt.grid(True, axis='y')
+plt.tight_layout()
+plt.savefig("error_bin_barplot.png")
+plt.show()
+
+
+# Optional: per-duck average error
+duck_avg = comparison_df.groupby('duck_id')['distance_error_km'].mean().sort_values(ascending=False)
+print("\nTop 5 Ducks with Highest Average Error:")
+print(duck_avg.head())

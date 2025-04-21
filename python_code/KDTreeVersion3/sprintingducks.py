@@ -9,7 +9,7 @@ TOKEN = "02de0c63b48bcd13d425a73caa22eb81"
 DATA_PATH = "ShortTermSetData(Aug-Sept).csv"
 
 def main():
-    """Main function to run the duck migration prediction system"""
+    """Main function to run the duck migration prediction system."""
     print("\n===== Starting Duck Migration Prediction System =====\n")
     
     # Check if data file exists
@@ -19,16 +19,20 @@ def main():
     
     # Step 1: Load duck data
     print("Loading duck data...")
-    duck_trajectories, duck_gdf = load_duck_data(DATA_PATH)
-    if duck_trajectories is None or len(duck_trajectories) == 0:
+    ducks, duck_gdf = load_duck_data(DATA_PATH)
+    if ducks is None or len(ducks) == 0:
         print("Error loading duck data. Exiting.")
         return
     
     # Step 2: Define flyway region
     flyway_bbox = get_flyway_region()
     
-    # Step 3: Get all timestamps from duck trajectories
+    # Step 3: Extract all timestamps from duck trajectories
+    # Group the GeoDataFrame by duck ID so that get_all_timestamps can operate on each group
+    duck_trajectories = {duck_id: group for duck_id, group in duck_gdf.groupby('tag-local-identifier')}
     all_timestamps = get_all_timestamps(duck_trajectories)
+    
+    # If no timestamps were found, fall back on a default range (last 7 days)
     if not all_timestamps:
         print("No timestamps found in duck data. Using current time range.")
         end_date = datetime.now()
@@ -37,6 +41,15 @@ def main():
     else:
         start_date = min(all_timestamps)
         end_date = max(all_timestamps)
+    
+    print(f"Data date range: {start_date} to {end_date}")
+    
+    # (Optional) Here you can continue with generating predictions,
+    # e.g. export_predictions_to_csv(ducks, G, days=7, use_weather=True, weather_weight=0.4)
+    #
+    # For now, let's just quack at the success of our setup!
+    print("Duck data loaded, timestamps processed, and flyway region defined. Time to let these ducks fly!")
+
     
     # Sample coordinates for testing
     lat = 39.0
