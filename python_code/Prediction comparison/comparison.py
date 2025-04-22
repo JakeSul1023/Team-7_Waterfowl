@@ -74,51 +74,60 @@ print(f"Min error: {min_error:.2f} km")
 print(f"Standard deviation: {std_error:.2f} km")
 print(f"Percentage within 10 km: {within_10km:.2f}%")
 
-# Plot histogram of distance errors
+# Custom colors
+navy_green = "#2b4c3f"
+black = "#000000"
+
+# Set seaborn style
+sns.set_style("whitegrid")
+sns.set_palette([navy_green, black])
+
+# Histogram with KDE overlay
 plt.figure(figsize=(10, 6))
-sns.histplot(comparison_df['distance_error_km'], bins=50, kde=True)
-plt.title("Distribution of Prediction Errors (km)")
-plt.xlabel("Distance Error (km)")
-plt.ylabel("Frequency")
+sns.histplot(comparison_df['distance_error_km'], bins=50, kde=False, color=navy_green, edgecolor='black')
+sns.kdeplot(comparison_df['distance_error_km'], color=black, linewidth=2)
+plt.title("Distribution of Prediction Errors (km)", fontsize=14, color=navy_green)
+plt.xlabel("Distance Error (km)", fontsize=12)
+plt.ylabel("Frequency", fontsize=12)
 plt.grid(True)
 plt.tight_layout()
 plt.savefig("error_distribution_histogram.png")
 plt.show()
 
-# Boxplot for error spread
+# Boxplot
 plt.figure(figsize=(8, 4))
-sns.boxplot(x=comparison_df['distance_error_km'])
-plt.title("Boxplot of Prediction Errors (km)")
-plt.xlabel("Distance Error (km)")
+sns.boxplot(x=comparison_df['distance_error_km'], color=navy_green)
+plt.title("Boxplot of Prediction Errors (km)", fontsize=14, color=navy_green)
+plt.xlabel("Distance Error (km)", fontsize=12)
 plt.tight_layout()
 plt.savefig("error_boxplot.png")
 plt.show()
 
-# Bar chart: frequency vs binned error ranges
-bin_edges = [0, 10, 25, 50, 100, 250, 500, 1000]
+# Bin edges and labels
+bin_edges = [0, 10, 25, 50, 100, 250, 500, float("inf")]
 bin_labels = ["0-10", "10-25", "25-50", "50-100", "100-250", "250-500", "500+"]
 
-# Assign each distance error to a bin
+# Assign bins
 comparison_df['error_bin'] = pd.cut(
     comparison_df['distance_error_km'],
-    bins=[0, 10, 25, 50, 100, 250, 500, float("inf")],
+    bins=bin_edges,
     labels=bin_labels,
     include_lowest=True
 )
 
-# Count frequencies per bin
+# Bar chart of bin frequencies
 bin_counts = comparison_df['error_bin'].value_counts().sort_index()
 
-# Plot bar chart
 plt.figure(figsize=(10, 6))
-sns.barplot(x=bin_counts.index, y=bin_counts.values)
-plt.title("Frequency of Distance Errors by Bin")
-plt.xlabel("Distance Error Bin (km)")
-plt.ylabel("Frequency")
+sns.barplot(x=bin_counts.index, y=bin_counts.values, color=navy_green, edgecolor=black)
+plt.title("Frequency of Distance Errors by Bin", fontsize=14, color=navy_green)
+plt.xlabel("Distance Error Bin (km)", fontsize=12)
+plt.ylabel("Frequency", fontsize=12)
 plt.grid(True, axis='y')
 plt.tight_layout()
 plt.savefig("error_bin_barplot.png")
 plt.show()
+
 
 
 # Optional: per-duck average error
