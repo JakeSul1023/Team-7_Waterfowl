@@ -496,6 +496,53 @@ def visualize_migration_network(G, ducks, output_file="migration_network.png", h
     print(f"Network visualization saved to {output_file}")
 
 
+import json
+
+def save_predictions_as_json(ducks, G, output_file="duck_migration_forecast.json"):
+    """
+    Predict next location for each duck and save the result in JSON format.
+    Output format: 
+    [
+        {
+            "duck_id": "123456",
+            "base_timestamp": "2024-09-09 04:19:05",
+            "forecast_timestamp": "2024-09-10 04:19:05",
+            "start_lat": 34.1234,
+            "start_lon": -89.5678,
+            "forecast_lat": 35.4321,
+            "forecast_lon": -88.1234
+        },
+        ...
+    ]
+    """
+    results = []
+    forecast_timestamp = (pd.Timestamp.now() + pd.Timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+
+    for duck_id, duck in ducks.items():
+        if not duck.coord:
+            continue
+
+        start_location = duck.coord[-1]
+        base_timestamp = pd.to_datetime(duck.timestamps[-1]).strftime("%Y-%m-%d %H:%M:%S")
+        next_location = predict_next_location(G, start_location)
+
+        if next_location:
+            entry = {
+                "duck_id": duck_id,
+                "base_timestamp": base_timestamp,
+                "forecast_timestamp": forecast_timestamp,
+                "start_lat": start_location[1],
+                "start_lon": start_location[0],
+                "forecast_lat": next_location[1],
+                "forecast_lon": next_location[0]
+            }
+            results.append(entry)
+
+    with open(output_file, "w") as f:
+        json.dump(results, f, indent=4)
+    print(f"✅ Saved forecast results to {output_file}")
+
+
 if __name__ == "__main__":
 
     #Reading in data set
@@ -577,6 +624,8 @@ if __name__ == "__main__":
         'temperature': 0.3
     }  
     
+    save_predictions_as_json(ducks, G)
+
     #Adding weights to graph
     #add_edge_weights(G, edges) #edge_count, df, roundedDucks, factor_weights
     #print("Added edge weights")
