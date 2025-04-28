@@ -41,6 +41,7 @@ import time
 import json
 import pyarrow as pa
 import pyarrow.ipc as ipc
+import concurrent.futures
 
 
 
@@ -90,23 +91,39 @@ def get_openweather_forecast(lat, lon, api_key=OPENWEATHER_API_KEY):
         return None
 
 
-def fetch_openweather_forecast_for_points(lat_lon_list, api_key=OPENWEATHER_API_KEY):
+def fetch_openweather_forecast_for_points(lat_lon_list, api_key=OPENWEATHER_API_KEY, max_workers=5):
     """
-    Fetch weather forecasts for multiple latitude/longitude points.
-    Parameters:
-    - lat_lon_list: List of (latitude, longitude) tuples
-    - api_key: OpenWeather API key
+    Fetch weather forecasts for multiple latitude/longitude points in parallel.
+    
+    Args:
+        lat_lon_list: List of (latitude, longitude) tuples
+        api_key: OpenWeather API key
+        max_workers: Max number of concurrent API calls
+        
     Returns:
-    - List of weather data dictionaries.
+        List of weather data dictionaries.
     """
-    weather_data = []
-    for lat, lon in lat_lon_list:
-        weather_info = get_openweather_forecast(lat, lon, api_key)
-        if weather_info:
-            weather_data.append(weather_info)
-        time.sleep(1.2)  # Adding a small delay to respect API rate limits
-    return weather_data
 
+    def worker(lat_lon):
+        lat, lon = lat_lon
+        result = get_openweather_forecast(lat, lon, api_key)
+        # Respect API usage policy per thread (you can tweak the sleep time based on your limits)
+        time.sleep(1.2)
+        return result
+
+    weather_data = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(worker, lat_lon): lat_lon for lat_lon in lat_lon_list}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+                if result:
+                    weather_data.append(result)
+            except Exception as e:
+                lat_lon = futures[future]
+                print(f"❌ Error fetching weather for {lat_lon}: {e}")
+
+    return weather_data
 
 def is_valid_openweather_point(lat, lon, api_key=OPENWEATHER_API_KEY):
     """
